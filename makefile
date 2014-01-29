@@ -1,7 +1,11 @@
 NVCC = /usr/local/cuda-5.5/bin/nvcc
 
-make gpu: bin/gpuMain.exe
-make reg: bin/main.exe
+make gpu: bin/ bin/gpuMain.exe
+
+make reg: bin/ bin/main.exe 
+
+bin/: 
+	mkdir bin
 
 bin/main.exe: bin/main.o bin/ParseArgs.o bin/RandomGenerator.o bin/Hash.o bin/ParseData.o 
 	g++ bin/main.o bin/ParseArgs.o bin/RandomGenerator.o bin/Hash.o bin/ParseData.o -o bin/main.exe
