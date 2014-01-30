@@ -81,24 +81,16 @@ dim3 calculateThreadDimensions(int numWords,int numHash,int device){
 	//Firstly, solve for the max number of words that 
 	//Can be processed in one thread block.
 	int maxWordPerBlock = deviceProps.maxThreadsPerBlock/numHash;
+	
 	//Check to see if the user specified too many hash functions.
 	if(maxWordPerBlock ==0){
 		printf("Too many hash functions \n");
-		return 0; 
+		return dim3(0,0); 
 	}
-
-	//Figure out how many words we can fit into a block.
-	int wordsPerBlock = numWords%maxWordPerBlock;	
-	if(wordsPerBlock == 0){
+	int wordsPerBlock = 32*(maxWordPerBlock/32);
+	if(wordsPerBlock ==0)
 		wordsPerBlock = maxWordPerBlock;
-	}
-	
-	while(numWords%wordsPerBlock!=0){
-		wordsPerBlock--;
-	}
-
 	dim3 threadDimensions(wordsPerBlock,numHash);
-
 	return threadDimensions;
 }
 
@@ -109,31 +101,40 @@ dim3 calculateThreadDimensions(int numWords,int numHash,int device){
 */
 dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 	int device){
+	if(numWords == 0){
+		printf("Nothing to do \n");
+		return dim3(0,0,0);
+	}
+
 	//Get the device information being used.
 	cudaDeviceProp deviceProps;
 	cudaGetDeviceProperties(&deviceProps,device);
 	//Calculate the number of blocks needed to process all of the words.
 	int numBlocksNeeded = numWords/threadDimensions.x;
-	//Calculate the number of grids needed per row to process all of the words
-//	int maxGridSizeX = deviceProps.maxGridSize[0];	
-	//Hard code the maxGridSizeX due to a glitch in hyra
-	int maxGridSizeX = 65535; 
-	int blocksPerRow = numBlocksNeeded%maxGridSizeX;
-
-	/*	
-	while(numBlocksNeeded%blocksPerRow!=0){
-		blocksPerRow--;
-	}	
-	*/
+	if(numWords%threadDimensions.x!=0)
+		numBlocksNeeded++;
+	//Hard coded due to hydra glitch.
+	int maxGridSizeX = 65535;
+	int numBlocksPerRow;	
 	
-	//Calculate the number of rows
-	int numRows = numBlocksNeeded/blocksPerRow;
-	//Do we need to split up the problem into smaller chunks?
-	if(numRows>deviceProps.maxGridSize[1]){
-		printf("Not enough rows available %i \n",numRows);
-		return dim3(0,0,0);
+	if(numBlocksNeeded<=maxGridSizeX)
+		numBlocksPerRow = numBlocksNeeded;
+	else{
+		numBlocksPerRow = maxGridSizeX;
 	}
-	return dim3(blocksPerRow,numRows);	
+
+	int numRows = numBlocksNeeded/numBlocksPerRow;
+	if(numBlocksNeeded%numBlocksPerRow!=0){
+		numRows++;
+	}
+	if(numRows>deviceProps.maxGridSize[1]){
+		printf("Too many rows requested %i, \n",numRows);
+		printf("Blocks Per Row %i \n",numBlocksPerRow);
+		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
+		return dim3(0,0);
+	}
+	
+	return dim3(numBlocksPerRow,numRows);
 }
 
 /**
@@ -193,10 +194,13 @@ __device__ int calculateIndex(char* dev_bloom,int* dev_size,char* dev_words,
 * @param dev_size The size of the bloom filter being used.
 * @param dev_words The words being inserted.
 * @param dev_positions The starting positions of the words.
+* @param dev_numWords The number of words being inserted.
 */
 __global__ void insertWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_positions){
+	int* dev_positions,int* dev_numWords){
 	int currentWord = calculateCurrentWord();
+	if(currentWord>=dev_numWords[0])
+		return;
 	int wordStartingPosition = dev_positions[currentWord]; 	
 	int setIdx = calculateIndex(dev_bloom,dev_size,dev_words,
 		wordStartingPosition);
@@ -207,13 +211,16 @@ __global__ void insertWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
 * Responsible for querying words using the gpu.
 */
 __global__ void queryWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_positions,char* dev_results){
+	int* dev_positions,char* dev_results,int* dev_numWords){
 
-	int currentWord = calculateCurrentWord();	
-	int wordStartingPosition = dev_positions[currentWord]; 	
+	int currentWord = calculateCurrentWord();
+	if(currentWord>=dev_numWords[0])
+		return;
+	int wordStartingPosition = dev_positions[currentWord]; 
 	int getIdx = calculateIndex(dev_bloom,dev_size,dev_words,
 		wordStartingPosition);
 	__syncthreads();
+	
 	if(dev_bloom[getIdx]==0){
 		dev_results[currentWord]=0;
 	}
@@ -229,10 +236,12 @@ cudaError_t insertWords(char* dev_bloom,int* dev_size,char* dev_words,
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);
 
+	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
 	//Actually insert the words.
 	insertWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size
-		,dev_words,dev_offsets);
+		,dev_words,dev_offsets,dev_numWords);
 	cudaThreadSynchronize();
+	freeIntegers(dev_numWords);
 	//Check for errorrs...
 	cudaError_t error = cudaGetLastError();
 	if(error!=cudaSuccess){
@@ -246,7 +255,7 @@ cudaError_t insertWords(char* dev_bloom,int* dev_size,char* dev_words,
 }
 
 /**
-* Responsible for querying words inserted into the bloom filter
+* Responsible for uerying words inserted into the bloom filter
 */
 cudaError_t queryWords(char* dev_bloom,int* dev_size,char* dev_words,
 	int* dev_offsets,int numWords,int numHashes,int device,char* dev_result){
@@ -254,10 +263,15 @@ cudaError_t queryWords(char* dev_bloom,int* dev_size,char* dev_words,
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);
+	
+	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);	
+
 	//Actually query the words.
 	queryWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size
-		,dev_words,dev_offsets,dev_result);
+		,dev_words,dev_offsets,dev_result,dev_numWords);
 	cudaThreadSynchronize();
+	freeIntegers(dev_numWords);
+	
 	//Check for errorrs...
 	cudaError_t error = cudaGetLastError();
 	if(error!=cudaSuccess){
@@ -267,5 +281,6 @@ cudaError_t queryWords(char* dev_bloom,int* dev_size,char* dev_words,
 		printf("BlockDim: %i,%i \n",blockDimensions.x,blockDimensions.y);
 		return error;
 	}
+	
 	return cudaSuccess;			 				
 }
