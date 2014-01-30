@@ -117,10 +117,12 @@ dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 	//Calculate the number of grids needed per row to process all of the words
 	int maxGridSizeX = deviceProps.maxGridSize[0];	 
 	int blocksPerRow = numBlocksNeeded%maxGridSizeX;
-	
+
+	/*	
 	while(numBlocksNeeded%blocksPerRow!=0){
 		blocksPerRow--;
-	}
+	}	
+	*/
 	
 	//Calculate the number of rows
 	int numRows = numBlocksNeeded/blocksPerRow;

@@ -40,16 +40,16 @@ do
 done
 
 
-
+#Insert items into the gpu bloom
+echo "Starting gpu bloom"
+GPUCOMMAND=" -f gpuOut.txt  --generate ":$PARAMETERS
+time $COMMAND ./bin/gpuMain.exe $GPUCOMMAND
 
 #Insert items into the bloom filters.
 echo "Starting regular"
-REGCOMMAND=" -f regOut.txt --generate ":$PARAMETERS
+REGCOMMAND=" -f regOut.txt ":$PARAMETERS
 time ./bin/main.exe $REGCOMMAND
 
-echo "Starting gpu bloom"
-GPUCOMMAND=" -f gpuOut.txt            ":$PARAMETERS
-time $COMMAND ./bin/gpuMain.exe $GPUCOMMAND
 
 
 #Compare the two bloom filters and make sure that the results match.
