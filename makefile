@@ -31,10 +31,10 @@ bin/Hash.o: regularBloom/Hash.h regularBloom/Hash.cpp
 	mv Hash.o bin/
 
 bin/gpuMain.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o gpguBloom/gpumain.cpp bin/bloom.o gpguBloom/Bloom.h
-	$(NVCC) -o bin/gpuMain.exe gpguBloom/gpumain.cpp  bin/ParseArgs.o bin/RandomGenerator.o bin/ParseData.o bin/bloom.o -arch sm_20 
+	$(NVCC) -o bin/gpuMain.exe gpguBloom/gpumain.cpp  bin/ParseArgs.o bin/RandomGenerator.o bin/ParseData.o bin/bloom.o  
 	 
 bin/bloom.o: gpguBloom/bloom.cu
-	$(NVCC) -c gpguBloom/bloom.cu -arch sm_20
+	$(NVCC) -c gpguBloom/bloom.cu 
 	mv bloom.o bin/
 	
 clean:
