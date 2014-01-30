@@ -1,4 +1,4 @@
-NVCC = /usr/local/cuda-5.5/bin/nvcc
+NVCC = /usr/local/cuda/bin/nvcc
 
 make gpu: bin/ bin/gpuMain.exe
 

@@ -115,7 +115,9 @@ dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 	//Calculate the number of blocks needed to process all of the words.
 	int numBlocksNeeded = numWords/threadDimensions.x;
 	//Calculate the number of grids needed per row to process all of the words
-	int maxGridSizeX = deviceProps.maxGridSize[0];	 
+//	int maxGridSizeX = deviceProps.maxGridSize[0];	
+	//Hard code the maxGridSizeX due to a glitch in hyra
+	int maxGridSizeX = 65535; 
 	int blocksPerRow = numBlocksNeeded%maxGridSizeX;
 
 	/*	
