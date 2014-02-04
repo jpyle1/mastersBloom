@@ -54,14 +54,10 @@ int main(int argc,char** argv){
 	int i = 0;
 	for(i = 0; i<bloomOptions_t.numBatches;i++){
 		WordAttributes* wordAttributes = loadFile(i);
-		int* dev_offsets = allocateAndCopyIntegers(wordAttributes->positions,
-			wordAttributes->numWords);
-		char* dev_words = allocateAndCopyChar(wordAttributes->currentWords,
-			wordAttributes->numBytes);
-		insertWords(dev_bloom,dev_size,dev_words,dev_offsets,
-			wordAttributes->numWords,bloomOptions_t.numHashes,bloomOptions_t.device);
-		freeChars(dev_words);
-		freeIntegers(dev_offsets);
+		insertWords(dev_bloom,dev_size,wordAttributes->currentWords,
+			wordAttributes->positions,wordAttributes->numWords,
+			wordAttributes->numBytes,bloomOptions_t.numHashes,
+			bloomOptions_t.device);
 		freeWordAttributes(wordAttributes);
 	}
 
@@ -73,26 +69,18 @@ int main(int argc,char** argv){
 
 	//Query the words we know to be true.
 	i = 0;
-	for(;i<bloomOptions_t.trueBatches;i++){
-		
+	for(;i<bloomOptions_t.trueBatches;i++){		
 		WordAttributes* wordAttributes = loadFile(i);
 		numTrue += wordAttributes->numWords;
-		int* dev_offsets = allocateAndCopyIntegers(wordAttributes->positions,
-			wordAttributes->numWords);
-		char* dev_words = allocateAndCopyChar(wordAttributes->currentWords,
-			wordAttributes->numBytes);
 		
 		char* resultVector = (char*)malloc(sizeof(char)*wordAttributes->numWords);
 		memset(resultVector,1,wordAttributes->numWords);
-
-		char* dev_results = allocateAndCopyChar(resultVector,
-			wordAttributes->numWords);
-		
-		queryWords(dev_bloom,dev_size,dev_words,dev_offsets,
-			wordAttributes->numWords,bloomOptions_t.numHashes,bloomOptions_t.device,
-			dev_results);
-		copyCharsToHost(resultVector,dev_results,wordAttributes->numWords);
-		
+			
+		queryWords(dev_bloom,dev_size,wordAttributes->currentWords,
+			wordAttributes->positions,wordAttributes->numWords,
+			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
+			resultVector);	
+	
 		int x = 0;
 		for(x = 0; x<wordAttributes->numWords;x++){
 			if(resultVector[x]==1)
@@ -102,30 +90,21 @@ int main(int argc,char** argv){
 		}
 		
 		free(resultVector);
-		freeChars(dev_words);
-		freeChars(dev_results);
-		freeIntegers(dev_offsets);
+		freeWordAttributes(wordAttributes);
 	}
 	
 	for(i = 0;i<bloomOptions_t.falseBatches;i++){
 		WordAttributes* wordAttributes = loadFileByPrefix(i,(char*)"q");		
 		numFalse += wordAttributes->numWords;
-		int* dev_offsets = allocateAndCopyIntegers(wordAttributes->positions,
-			wordAttributes->numWords);
-		char* dev_words = allocateAndCopyChar(wordAttributes->currentWords,
-			wordAttributes->numBytes);
 		char* resultVector = (char*)malloc(sizeof(char)*wordAttributes->numWords);
-		memset(resultVector,1,wordAttributes->numWords);
-		
-		char* dev_results = allocateAndCopyChar(resultVector,
-			wordAttributes->numWords);
-		
-		queryWords(dev_bloom,dev_size,dev_words,dev_offsets,
-			wordAttributes->numWords,bloomOptions_t.numHashes,bloomOptions_t.device,
-			dev_results);
-		
-		copyCharsToHost(resultVector,dev_results,wordAttributes->numWords);
+		memset(resultVector,1,wordAttributes->numWords);		
 
+		queryWords(dev_bloom,dev_size,wordAttributes->currentWords,
+			wordAttributes->positions,wordAttributes->numWords,
+			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
+			resultVector);	
+
+	
 		int x = 0;
 		for(x = 0; x<wordAttributes->numWords;x++){
 			if(resultVector[x] == 0){
@@ -134,12 +113,8 @@ int main(int argc,char** argv){
 				numCalcTrue+=1;
 			}
 		}
-		
 		free(resultVector);
-		freeChars(dev_words);
-		freeChars(dev_results);
-		freeIntegers(dev_offsets);
-		
+		free(wordAttributes);		
 	}
 	
 

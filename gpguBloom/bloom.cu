@@ -233,19 +233,36 @@ __global__ void queryWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
 /**
 * Responsible for inserting words into the bloom filter.
 */
-cudaError_t insertWords(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_offsets,int numWords,int numHashes,int device){
+cudaError_t insertWords(char* dev_bloom,int* dev_size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device){
 
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);	
 
 	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
+	if(!dev_numWords){
+		return cudaGetLastError();
+	}	
+
+	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
+	if(!dev_offsets){
+		return cudaGetLastError();
+	}
+		
+	char* dev_words = allocateAndCopyChar(words,numBytes);
+	if(!dev_words){
+		return cudaGetLastError();
+	}
+
 	//Actually insert the words.
 	insertWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size
 		,dev_words,dev_offsets,dev_numWords);
 	cudaThreadSynchronize();
 	freeIntegers(dev_numWords);
+	freeChars(dev_words);
+	freeIntegers(dev_offsets);
+
 	//Check for errorrs...
 	cudaError_t error = cudaGetLastError();
 	if(error!=cudaSuccess){
@@ -261,21 +278,43 @@ cudaError_t insertWords(char* dev_bloom,int* dev_size,char* dev_words,
 /**
 * Responsible for uerying words inserted into the bloom filter
 */
-cudaError_t queryWords(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_offsets,int numWords,int numHashes,int device,char* dev_result){
+cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,
+	char* results){
 
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);
-	
-	
-	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);	
+		
+	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
+	if(!dev_numWords){
+		return cudaGetLastError();
+	}	
+
+	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
+	if(!dev_offsets){
+		return cudaGetLastError();
+	}
+		
+	char* dev_words = allocateAndCopyChar(words,numBytes);
+	if(!dev_words){
+		return cudaGetLastError();
+	}
+
+	char* dev_results = allocateAndCopyChar(results,numWords);
+	if(!dev_results){
+		return cudaGetLastError();
+	}
 
 	//Actually query the words.
 	queryWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size
-		,dev_words,dev_offsets,dev_result,dev_numWords);
+		,dev_words,dev_offsets,dev_results,dev_numWords);
 	cudaThreadSynchronize();
 	freeIntegers(dev_numWords);
+	copyCharsToHost(results,dev_results,numWords);
+	freeChars(dev_words);
+	freeChars(dev_results);
+	freeIntegers(dev_offsets);
 	
 	//Check for errorrs...
 	cudaError_t error = cudaGetLastError();

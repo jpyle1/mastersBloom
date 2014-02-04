@@ -55,14 +55,15 @@ extern dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 /**
 * Responsible for inserting words into the bloom filter.
 */
-extern cudaError_t insertWords(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_offsets,int numWords,int numHashes,int device);
+extern cudaError_t insertWords(char* dev_bloom,int* dev_size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device);
 
 /**
 * Responsible for querying words inserted into the bloom filter
 */
-extern cudaError_t queryWords(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_offsets,int numWords,int numHashes,int device,char* dev_result);
+extern cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,
+		char* result);
 
 /**
 * Responsible for calculating the dimenions of the gpu layout being used.
