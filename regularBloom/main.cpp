@@ -63,8 +63,10 @@ int main(int argc,char** argv){
 	/**
 	* Does the user need help?
 	*/ 
-	if(wasArgSpecified("--help",argv,argc)!=0)
+	if(wasArgSpecified("--help",argv,argc)!=0){
 		printHelp();	
+		return 0;
+	}
 	
 	
 	//Initialize with default configuration.

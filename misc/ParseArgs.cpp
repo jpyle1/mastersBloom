@@ -15,6 +15,8 @@ void printHelp(){
 	printf("--file [fileName] -f[fileName] Where the bloom filter should be outputted to.");
 	printf("--trueBatches [num] -tb [num] Number of true batches \n");
 	printf("--falseBatches [num] -fb [num] Number of false batches \n");
+	printf("--numTrueBatchInsertions [num] -ntbi Number of times to insert\
+		a true batch. This is only for the PBF. \n");
 	printf("\n===============\n");
 }
 
@@ -116,6 +118,14 @@ void getConfiguration(BloomOptions_t* bloomOptions,char** args,int argc){
 	if(value!=0){
 		bloomOptions->falseBatches = atoi(value);
 	}
+	value = getArgValue("-ntbi",args,argc); 
+	if(value!=0){
+		bloomOptions->numTrueBatchInsertions = atoi(value);
+	}
+	value = getArgValue("--numTrueBatchInsertions",args,argc); 
+	if(value!=0){
+		bloomOptions->numTrueBatchInsertions = atoi(value);
+	}
 }
 
 /**
@@ -131,6 +141,7 @@ void setDefault(BloomOptions_t* bloomOptions){
 	bloomOptions->fileName = 0;
 	bloomOptions->trueBatches=5;
 	bloomOptions->falseBatches=5;
+	bloomOptions->numTrueBatchInsertions=10;
 }
 
 
@@ -145,6 +156,8 @@ void showDetails(BloomOptions_t* bloomOptions){
 	printf("numBatches: %i \n",bloomOptions->numBatches);
 	printf("numTrueBatches: %i \n",bloomOptions->trueBatches);
 	printf("numFalseBatches: %i \n",bloomOptions->falseBatches);
+	printf("Number of times to insert a true batch (PBF):%i \n",
+		bloomOptions->numTrueBatchInsertions);
 }
 
 /**

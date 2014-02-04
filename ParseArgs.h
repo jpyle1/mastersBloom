@@ -50,6 +50,10 @@ typedef struct BloomOptions{
 	*/
 	int numBatches;
 
+	/**
+	* Determines the number of times to insert the number of true batches.
+	*/
+	int numTrueBatchInsertions;
 
 	/**
 	* Holds the number of true batches that should be used when querying.
