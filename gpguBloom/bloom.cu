@@ -9,11 +9,13 @@ int* allocateAndCopyIntegers(int* array,int length){
 	int* dev_int;
 	cudaError_t result = cudaMalloc((void**)&dev_int,length*sizeof(int));
 	if(result!=cudaSuccess){
+		printf("Could not allocate memory for the integers");
 		return 0;
 	}	 
 	result = cudaMemcpy(dev_int,array,sizeof(int)*length,
 		cudaMemcpyHostToDevice);
 	if(result!=cudaSuccess){
+		printf("Could not copy the integers ot the device \n");
 		return 0;
 	}	
 	return dev_int; 
@@ -35,11 +37,13 @@ char* allocateAndCopyChar(char* array,int length){
 	char* dev_array;
 	cudaError_t result = cudaMalloc((void**)&dev_array,length*sizeof(char));
 	if(result!=cudaSuccess){
+		printf("Could not allocate the char array \n");
 		return 0;
 	}	 
 	result = cudaMemcpy(dev_array,array,sizeof(char)*length,
 		cudaMemcpyHostToDevice);
-	if(result!=cudaSuccess){
+	if(result!=cudaSuccess){	
+		printf("Could copy the char array to the device \n");
 		return 0;
 	}	
 	return dev_array; 
@@ -234,7 +238,7 @@ cudaError_t insertWords(char* dev_bloom,int* dev_size,char* dev_words,
 
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
-		device);
+		device);	
 
 	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
 	//Actually insert the words.
@@ -263,6 +267,7 @@ cudaError_t queryWords(char* dev_bloom,int* dev_size,char* dev_words,
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);
+	
 	
 	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);	
 

@@ -73,11 +73,15 @@ int main(int argc,char** argv){
 	//Parse the user's configuration.
 	getConfiguration(&bloomOptions_t,argv,argc);
 	//Show the user the configuration.	
-	showDetails(&bloomOptions_t);
+	if(!wasArgSpecified("--silent",argv,argc)!=0)
+		showDetails(&bloomOptions_t);
 
 	//Do we need to generate new test files?
 	if(wasArgSpecified("--generate",argv,argc)!=0){		
-		generateFiles(bloomOptions_t.numBatches,bloomOptions_t.batchSize);	
+		generateFiles(bloomOptions_t.numBatches,bloomOptions_t.batchSize);
+		generateFilesPrefix(bloomOptions_t.falseBatches,bloomOptions_t.batchSize,
+			(char*)"q");
+		return 0;
 	}
 
 	//Create the bloom filter being used, and initialize it with all 0's.
@@ -121,14 +125,7 @@ int main(int argc,char** argv){
 		free(resultVector);	
 	}
 
-	//Query words that with a high probability are not in the bloom filter.
-	//Firstly, create the false batches.
-	//Do we need to generate new test files?
-	if(wasArgSpecified("--generate",argv,argc)!=0){		
-		generateFilesPrefix(bloomOptions_t.falseBatches,bloomOptions_t.batchSize,
-			(char*)"q");
-	}
-
+	//Query the false data.
 	i = 0;
 	for(i = 0;i<bloomOptions_t.falseBatches;i++){
 		WordAttributes* wordAttributes = loadFileByPrefix(i,(char*)"q");		

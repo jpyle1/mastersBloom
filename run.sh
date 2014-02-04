@@ -39,10 +39,13 @@ do
 	esac
 done
 
+echo "Generating data"
+GEN=" --generate --silent "
+time ./bin/main.exe $GEN:$PARAMETERS
 
 #Insert items into the gpu bloom
 echo "Starting gpu bloom"
-GPUCOMMAND=" -f gpuOut.txt  --generate ":$PARAMETERS
+GPUCOMMAND=" -f gpuOut.txt  ":$PARAMETERS
 time $COMMAND ./bin/gpuMain.exe $GPUCOMMAND
 
 #Insert items into the bloom filters.
