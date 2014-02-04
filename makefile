@@ -38,7 +38,7 @@ bin/bloom.o: gpguBloom/bloom.cu
 	mv bloom.o bin/
 	
 clean:
-	rm bin/*
+	rm -rf bin
 	rm *.txt
 	
 run: 

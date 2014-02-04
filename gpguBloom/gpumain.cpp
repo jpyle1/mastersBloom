@@ -114,7 +114,7 @@ int main(int argc,char** argv){
 			}
 		}
 		free(resultVector);
-		free(wordAttributes);		
+		freeWordAttributes(wordAttributes);		
 	}
 	
 
