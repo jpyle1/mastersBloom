@@ -36,8 +36,6 @@ int main(int argc,char** argv){
 	//Create the bloom filter being used, and initialize it with all 0's.
 	char* bloom = (char*)malloc(sizeof(char)*bloomOptions_t.size);
 	memset(bloom,0,bloomOptions_t.size);
-	//Create an array holding the host size;
-	int* bloomSize = &bloomOptions_t.size; 
 
 	//Allocate the GPU bloom filter.
 	char* dev_bloom = allocateAndCopyChar(bloom,bloomOptions_t.size); 
@@ -45,18 +43,12 @@ int main(int argc,char** argv){
 		printf("Could not allocate the bloom filter \n");
 		return -1;	
 	}
-	//Allocate and Copy the size of the bloom filter
-	int* dev_size = allocateAndCopyIntegers(bloomSize,1);
-	if(dev_size==0){
-		printf("Could not allocate the bloom filter size \n");
-		return -1;
-	}
 
 	//Insert items into the bloom filter.
 	int i = 0;
 	for(i = 0; i<bloomOptions_t.numBatches;i++){
 		WordAttributes* wordAttributes = loadFile(i);
-		insertWords(dev_bloom,dev_size,wordAttributes->currentWords,
+		insertWords(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
 			wordAttributes->positions,wordAttributes->numWords,
 			wordAttributes->numBytes,bloomOptions_t.numHashes,
 			bloomOptions_t.device);
@@ -78,7 +70,7 @@ int main(int argc,char** argv){
 		char* resultVector = (char*)malloc(sizeof(char)*wordAttributes->numWords);
 		memset(resultVector,1,wordAttributes->numWords);
 			
-		queryWords(dev_bloom,dev_size,wordAttributes->currentWords,
+		queryWords(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
 			wordAttributes->positions,wordAttributes->numWords,
 			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
 			resultVector);	
@@ -101,7 +93,7 @@ int main(int argc,char** argv){
 		char* resultVector = (char*)malloc(sizeof(char)*wordAttributes->numWords);
 		memset(resultVector,1,wordAttributes->numWords);		
 
-		queryWords(dev_bloom,dev_size,wordAttributes->currentWords,
+		queryWords(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
 			wordAttributes->positions,wordAttributes->numWords,
 			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
 			resultVector);	
@@ -130,7 +122,6 @@ int main(int argc,char** argv){
 	copyCharsToHost(bloom,dev_bloom,bloomOptions_t.size);
 	//Free the bloom filter.
 	freeChars(dev_bloom);	
-	freeIntegers(dev_size);
 	//Output the bloom filter.
 	if(bloomOptions_t.fileName!=0){
 		writeBloomFilterToFile(&bloomOptions_t,bloom);	

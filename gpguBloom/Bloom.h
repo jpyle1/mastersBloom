@@ -77,13 +77,13 @@ extern dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 /**
 * Responsible for inserting words into the bloom filter.
 */
-extern cudaError_t insertWords(char* dev_bloom,int* dev_size,char* words,
+extern cudaError_t insertWords(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device);
 
 /**
 * Responsible for querying words inserted into the bloom filter
 */
-extern cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
+extern cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device,
 		char* result);
 
@@ -106,6 +106,6 @@ extern dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 /**
 * Responsible for inserting words into the PBF.
 */
-extern cudaError_t insertWordsPBF(char* dev_bloom,int* dev_size,char* words,
+extern cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob);
 

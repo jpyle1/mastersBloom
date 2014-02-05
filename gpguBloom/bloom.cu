@@ -230,13 +230,13 @@ __device__ int calculateCurrentWord(){
 	return  threadIdx.x+numThreadsPrevRows;
 }
 
-__device__ int calculateIndex(char* dev_bloom,int* dev_size,char* dev_words,
+__device__ int calculateIndex(char* dev_bloom,int size,char* dev_words,
 	int wordStartingPosition){	
 
-	unsigned long firstValue = djb2Hash((unsigned char*)dev_words,wordStartingPosition)%dev_size[0];	
-	unsigned long secondValue = sdbmHash((unsigned char*)dev_words,wordStartingPosition)%dev_size[0];
-	secondValue = (secondValue*threadIdx.y*threadIdx.y)%dev_size[0];
-	return (firstValue+secondValue)%dev_size[0];		
+	unsigned long firstValue = djb2Hash((unsigned char*)dev_words,wordStartingPosition)%size;	
+	unsigned long secondValue = sdbmHash((unsigned char*)dev_words,wordStartingPosition)%size;
+	secondValue = (secondValue*threadIdx.y*threadIdx.y)%size;
+	return (firstValue+secondValue)%size;
 
 }
 
@@ -250,19 +250,19 @@ __global__ void initRand(curandState* state,unsigned long seed,int numWords){
 
 //Insert words into the gpu bloom.
 __global__ void insertWordsGpuPBF(char* dev_bloom,
-	int* dev_size,char* dev_words,int* dev_positions, int* dev_numWords,
+	int size,char* dev_words,int* dev_positions, int numWords,
 	curandState* globalState,float prob){
 
 	//Firstly, calculate the current index and the random probability.
 	int word = calculateCurrentWord();
-	if(word>=dev_numWords[0])
+	if(word>=numWords)
 		return;
 
 	curandState localState = globalState[word+threadIdx.y];
 	float random = curand_uniform(&localState);
 	globalState[word+threadIdx.y] = localState;
 	
-	int index = calculateIndex(dev_bloom,dev_size,dev_words,dev_positions[word]);
+	int index = calculateIndex(dev_bloom,size,dev_words,dev_positions[word]);
 	//if it has NOT been set.
 	if(dev_bloom[index]!=1){
 		//If the probability is low enough...
@@ -282,13 +282,13 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,
 * @param dev_positions The starting positions of the words.
 * @param dev_numWords The number of words being inserted.
 */
-__global__ void insertWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_positions,int* dev_numWords){
+__global__ void insertWordsGpu(char* dev_bloom,int size,char* dev_words,
+	int* dev_positions,int numWords){
 	int currentWord = calculateCurrentWord();
-	if(currentWord>=dev_numWords[0])
+	if(currentWord>=numWords)
 		return;
 	int wordStartingPosition = dev_positions[currentWord]; 	
-	int setIdx = calculateIndex(dev_bloom,dev_size,dev_words,
+	int setIdx = calculateIndex(dev_bloom,size,dev_words,
 		wordStartingPosition);
 	dev_bloom[setIdx]=1;
 }
@@ -296,14 +296,14 @@ __global__ void insertWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
 /**
 * Responsible for querying words using the gpu.
 */
-__global__ void queryWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
-	int* dev_positions,char* dev_results,int* dev_numWords){
+__global__ void queryWordsGpu(char* dev_bloom,int size,char* dev_words,
+	int* dev_positions,char* dev_results,int numWords){
 
 	int currentWord = calculateCurrentWord();
-	if(currentWord>=dev_numWords[0])
+	if(currentWord>=numWords)
 		return;
 	int wordStartingPosition = dev_positions[currentWord]; 
-	int getIdx = calculateIndex(dev_bloom,dev_size,dev_words,
+	int getIdx = calculateIndex(dev_bloom,size,dev_words,
 		wordStartingPosition);
 	__syncthreads();
 	
@@ -315,17 +315,13 @@ __global__ void queryWordsGpu(char* dev_bloom,int* dev_size,char* dev_words,
 /**
 * Responsible for inserting words into the bloom filter.
 */
-cudaError_t insertWords(char* dev_bloom,int* dev_size,char* words,
+cudaError_t insertWords(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device){
 
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);	
 
-	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
-	if(!dev_numWords){
-		return cudaGetLastError();
-	}	
 
 	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
 	if(!dev_offsets){
@@ -338,10 +334,9 @@ cudaError_t insertWords(char* dev_bloom,int* dev_size,char* words,
 	}
 
 	//Actually insert the words.
-	insertWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size
-		,dev_words,dev_offsets,dev_numWords);
+	insertWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,size
+		,dev_words,dev_offsets,numWords);
 	cudaThreadSynchronize();
-	freeIntegers(dev_numWords);
 	freeChars(dev_words);
 	freeIntegers(dev_offsets);
 
@@ -360,7 +355,7 @@ cudaError_t insertWords(char* dev_bloom,int* dev_size,char* words,
 /**
 * Responsible for uerying words inserted into the bloom filter
 */
-cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
+cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device,
 	char* results){
 
@@ -368,10 +363,6 @@ cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);
 		
-	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
-	if(!dev_numWords){
-		return cudaGetLastError();
-	}	
 
 	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
 	if(!dev_offsets){
@@ -389,10 +380,9 @@ cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
 	}
 
 	//Actually query the words.
-	queryWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size
-		,dev_words,dev_offsets,dev_results,dev_numWords);
+	queryWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,size
+		,dev_words,dev_offsets,dev_results,numWords);
 	cudaThreadSynchronize();
-	freeIntegers(dev_numWords);
 	copyCharsToHost(results,dev_results,numWords);
 	freeChars(dev_words);
 	freeChars(dev_results);
@@ -414,7 +404,7 @@ cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
 /**
 * Responsible for inserting words into the PBF.
 */
-cudaError_t insertWordsPBF(char* dev_bloom,int* dev_size,char* words,
+cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob){
 
 	//Calculate the dimensions and allocate the gpu memory required.
@@ -422,23 +412,15 @@ cudaError_t insertWordsPBF(char* dev_bloom,int* dev_size,char* words,
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		device);
 
-	float* dev_prob = allocateAndCopyFloats(&prob,1);
-	if(!dev_prob){
-		return cudaGetLastError();
-	}	
-		
-	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
-	if(!dev_numWords){
-		return cudaGetLastError();
-	}	
-
 	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
 	if(!dev_offsets){
+		printf("Could not allocate the offsets \n");
 		return cudaGetLastError();
 	}
 		
 	char* dev_words = allocateAndCopyChar(words,numBytes);
 	if(!dev_words){
+		printf("Could not allocate the words \n");;
 		return cudaGetLastError();
 	}
 
@@ -464,8 +446,8 @@ cudaError_t insertWordsPBF(char* dev_bloom,int* dev_size,char* words,
 		return error;
 	}	
 
-	insertWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size,
-		dev_words,dev_offsets,dev_numWords,dev_states,prob);	
+	insertWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,size,
+		dev_words,dev_offsets,numWords,dev_states,prob);	
 	//Make sure we could generate random numbers.
 	cudaThreadSynchronize();
 	error = cudaGetLastError();
@@ -477,8 +459,9 @@ cudaError_t insertWordsPBF(char* dev_bloom,int* dev_size,char* words,
 		return error;
 	}	
 
+	freeChars(dev_words);
+	freeIntegers(dev_offsets);
 				
-
 	//Free the cuda random states.
 	freeCurandStates(dev_states);
 	return cudaSuccess;
