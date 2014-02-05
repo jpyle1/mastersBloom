@@ -10,13 +10,15 @@ void printHelp(){
 	printf("--hashes [num] -h [num] The number of hash functions per word inserted \n");
 	printf("--batchSize [num] -b [num] Holds the size of the batch. \n");
 	printf("--help\n");
-	printf("--numBatches [num] -n [num] How many batches should be inserted. \n");
+	printf("--numBatches [num] -n [num] How many batches should be inserted.\
+		Note, a subset of these will be included as a true batch in the query. \n");
 	printf("--generate  Describes if data files should be generated. \n");
 	printf("--file [fileName] -f[fileName] Where the bloom filter should be outputted to.");
 	printf("--trueBatches [num] -tb [num] Number of true batches \n");
 	printf("--falseBatches [num] -fb [num] Number of false batches \n");
 	printf("--numTrueBatchInsertions [num] -ntbi Number of times to insert\
 		a true batch. This is only for the PBF. \n");
+	printf("--prob [float] -p [float] The probabiltiy  (PBF Only) \n");
 	printf("\n===============\n");
 }
 
@@ -126,6 +128,15 @@ void getConfiguration(BloomOptions_t* bloomOptions,char** args,int argc){
 	if(value!=0){
 		bloomOptions->numTrueBatchInsertions = atoi(value);
 	}
+	value = getArgValue("--prob",args,argc); 
+	if(value!=0){
+		bloomOptions->prob = atof(value);	
+	}
+	value = getArgValue("-p",args,argc); 
+	if(value!=0){
+		bloomOptions->prob = atof(value);
+	}
+
 }
 
 /**
@@ -142,6 +153,7 @@ void setDefault(BloomOptions_t* bloomOptions){
 	bloomOptions->trueBatches=5;
 	bloomOptions->falseBatches=5;
 	bloomOptions->numTrueBatchInsertions=10;
+	bloomOptions->prob = .2f;
 }
 
 
@@ -158,6 +170,7 @@ void showDetails(BloomOptions_t* bloomOptions){
 	printf("numFalseBatches: %i \n",bloomOptions->falseBatches);
 	printf("Number of times to insert a true batch (PBF):%i \n",
 		bloomOptions->numTrueBatchInsertions);
+	printf("Probability (PBF): %.6f \n",bloomOptions->prob);
 }
 
 /**

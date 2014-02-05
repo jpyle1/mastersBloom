@@ -1,6 +1,18 @@
 #include "../ParseArgs.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <curand_kernel.h>
+#include <time.h>
+
+/**
+* Allocates curand states.
+*/
+extern curandState* allocateCurandStates(int length);
+
+/**
+* Frees curandStates.
+*/
+extern cudaError_t freeCurandStates(curandState* dev_states);
 
 /**
 * Allocates an Integer array to the cuda device.
@@ -14,6 +26,16 @@ extern int* allocateAndCopyIntegers(int* array,int length);
 * @param dev_array The integers copied into the cuda array. 
 */
 extern cudaError_t freeIntegers(int* dev_array);
+
+/**
+* Alloctes a Float array to the cuda device.
+*/
+extern float* allocateAndCopyFloats(float* array,int length);
+
+/**
+* Frees Floats copied into a cuda array.
+*/
+extern cudaError_t freeFloats(float* dev_float);
 
 /**
 * Allocates a character array to the cuda device.
@@ -80,3 +102,10 @@ extern dim3 calculateThreadDimensions(int numWords,int numHash,int device);
 */
 extern dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 	int device);
+
+/**
+* Responsible for inserting words into the PBF.
+*/
+extern cudaError_t insertWordsPBF(char* dev_bloom,int* dev_size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob);
+

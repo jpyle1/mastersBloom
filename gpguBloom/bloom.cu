@@ -1,6 +1,26 @@
 #include "Bloom.h"
 
 /**
+* Allocates curand states.
+*/
+extern curandState* allocateCurandStates(int length){
+	curandState* dev_states;
+	cudaError_t result = cudaMalloc((void**)&dev_states,length*sizeof(int));
+	if(result!=cudaSuccess){
+		printf("Could not allocate memory for the integers");
+		return 0;
+	}	 
+	return dev_states;
+}
+
+/**
+* Frees curandStates.
+*/
+extern cudaError_t freeCurandStates(curandState* dev_states){
+	return cudaFree(dev_states);
+}
+
+/**
 * Allocates an Integer array to the cuda device.
 * @param array The array of integers being allocated.
 * @param length The number of items in the array.
@@ -28,6 +48,35 @@ int* allocateAndCopyIntegers(int* array,int length){
 cudaError_t freeIntegers(int* dev_array){
 	return cudaFree(dev_array);
 }
+
+/**
+* Alloctes a Float array to the cuda device.
+*/
+float* allocateAndCopyFloats(float* array,int length){
+	float* dev_float;
+	cudaError_t result = cudaMalloc((void**)&dev_float,length*sizeof(float));
+	if(result!=cudaSuccess){
+		printf("Could not allocate memory for the integers");
+		return 0;
+	}	 
+	result = cudaMemcpy(dev_float,array,sizeof(float)*length,
+		cudaMemcpyHostToDevice);
+	if(result!=cudaSuccess){
+		printf("Could not copy the integers ot the device \n");
+		return 0;
+	}	
+	return dev_float; 
+
+
+}
+
+/**
+* Frees Floats copied into a cuda array.
+*/
+cudaError_t freeFloats(float* dev_float){
+	return cudaFree(dev_float);
+}
+
 
 /**
 * Allocates a character array to the cuda device.
@@ -191,6 +240,39 @@ __device__ int calculateIndex(char* dev_bloom,int* dev_size,char* dev_words,
 
 }
 
+//Initialize the random values here...
+__global__ void initRand(curandState* state,unsigned long seed,int numWords){
+	int index = calculateCurrentWord();
+	if(index>=numWords)
+		return;
+	curand_init(seed,index+threadIdx.y,0,&state[index+threadIdx.y]);
+}
+
+//Insert words into the gpu bloom.
+__global__ void insertWordsGpuPBF(char* dev_bloom,
+	int* dev_size,char* dev_words,int* dev_positions, int* dev_numWords,
+	curandState* globalState,float prob){
+
+	//Firstly, calculate the current index and the random probability.
+	int word = calculateCurrentWord();
+	if(word>=dev_numWords[0])
+		return;
+
+	curandState localState = globalState[word+threadIdx.y];
+	float random = curand_uniform(&localState);
+	globalState[word+threadIdx.y] = localState;
+	
+	int index = calculateIndex(dev_bloom,dev_size,dev_words,dev_positions[word]);
+	//if it has NOT been set.
+	if(dev_bloom[index]!=1){
+		//If the probability is low enough...
+		if(random<prob){
+			dev_bloom[index] = 1;	
+		}
+	}		
+}
+
+
 
 /**
 * Responsible for inserting words using the gpu.
@@ -328,3 +410,77 @@ cudaError_t queryWords(char* dev_bloom,int* dev_size,char* words,
 	
 	return cudaSuccess;			 				
 }
+
+/**
+* Responsible for inserting words into the PBF.
+*/
+cudaError_t insertWordsPBF(char* dev_bloom,int* dev_size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob){
+
+	//Calculate the dimensions and allocate the gpu memory required.
+	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
+	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
+		device);
+
+	float* dev_prob = allocateAndCopyFloats(&prob,1);
+	if(!dev_prob){
+		return cudaGetLastError();
+	}	
+		
+	int* dev_numWords = allocateAndCopyIntegers(&numWords,1);
+	if(!dev_numWords){
+		return cudaGetLastError();
+	}	
+
+	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
+	if(!dev_offsets){
+		return cudaGetLastError();
+	}
+		
+	char* dev_words = allocateAndCopyChar(words,numBytes);
+	if(!dev_words){
+		return cudaGetLastError();
+	}
+
+	//Allocate the curand states.
+	//A new random value for each word.
+	curandState* dev_states = allocateCurandStates(numWords*numHashes);	
+	if(!dev_states){
+		return cudaGetLastError();
+	}
+
+	//Seed the random values...	
+	initRand<<<blockDimensions,threadDimensions>>>(dev_states,
+		time(0),numWords);
+	
+	//Make sure we could initialize rand.
+	cudaThreadSynchronize();
+	cudaError_t error = cudaGetLastError();
+	if(error!=cudaSuccess){
+		printf("could not initialize rand \n");
+		printf("%s \n",cudaGetErrorString(error));
+		printf("Blocks Per Row %i,%i \n",blockDimensions.x,blockDimensions.y);
+		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
+		return error;
+	}	
+
+	insertWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,dev_size,
+		dev_words,dev_offsets,dev_numWords,dev_states,prob);	
+	//Make sure we could generate random numbers.
+	cudaThreadSynchronize();
+	error = cudaGetLastError();
+	if(error!=cudaSuccess){
+		printf("could not generate \n");
+		printf("%s \n",cudaGetErrorString(error));
+		printf("Blocks Per Row %i,%i \n",blockDimensions.x,blockDimensions.y);
+		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
+		return error;
+	}	
+
+				
+
+	//Free the cuda random states.
+	freeCurandStates(dev_states);
+	return cudaSuccess;
+}
+

@@ -75,6 +75,11 @@ typedef struct BloomOptions{
 	*/
 	char* fileName;
 
+	/**
+	* Determines the float of the probability being used.
+	*/
+	float prob;
+
 } BloomOptions_t;
 
 /**
