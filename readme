@@ -29,6 +29,7 @@ In order to test the probabilistic bloom fitler:
 --file The file where the bloom filter is outputted to.
 --numTrueBatchInsertions The number of times to insert the true batches 
 --prob The probability value of the pbf.
+--hashes The number of hash functions to use.
 
 3) launch
 
