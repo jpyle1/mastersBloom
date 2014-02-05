@@ -1,0 +1,37 @@
+This is an academic type GPU classical bloom filter / PBF.
+
+====================================
+PBF
+===================================
+
+In order to compile:
+
+make
+
+In order to see a full list of the options:
+./bin/pbfmain.exe --help	
+
+In order to generate test data:
+
+1) Select options included batchSize, number of batches, number of true batches,and number of false batches.
+2) If these items are not selected, default values are put in.
+3) Finally, include the --generate option.
+
+./bin/pbfmain.exe --batchSize 10000 -n 20 --trueBatches 5 --falseBatches 3 --generate
+
+In order to test the probabilistic bloom fitler:
+
+1) Pass in the arguments relating to the data that has been generated.
+--batchSize 10000 -n 20 --trueBatches 5 --falseBatches 3
+
+2) Select other options including:
+--size The size in bits (actually represented in chars) of the bloom filter
+--file The file where the bloom filter is outputted to.
+--numTrueBatchInsertions The number of times to insert the true batches 
+--prob The probability value of the pbf.
+
+3) launch
+
+./bin/pbfmain.exe --batchSize 10000 -n 20 --trueBatches 5 --falseBatches 3 --size 100000 --file testRun.txt --numTrueBatchInsertions 10 --prob .2
+
+==============================================
