@@ -109,3 +109,9 @@ extern dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
 extern cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob);
 
+/**
+* Responsible for counting ones into the PBF.
+*/
+extern cudaError_t countOnesPBF(char* dev_bloom,int size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,int* results);
+

@@ -118,6 +118,14 @@ cudaError_t copyCharsToHost(char* array,char* dev_array,int length){
 }
 
 /**
+* Copies an integer array to the host.
+*/
+cudaError_t copyIntegersToHost(int* array,int* dev_array,int length){
+	return cudaMemcpy(array,dev_array,sizeof(int)*length,cudaMemcpyDeviceToHost);
+}
+
+
+/**
 * Responsible for calculating the dimenions of the gpu layout being used.
 * @param numWords
 * @param numHash
@@ -264,8 +272,6 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,
 	curandState localState = globalState[randomIndex];
 	float random = curand_uniform(&localState);
 	globalState[randomIndex] = localState;
-	
-	
 	int index = calculateIndex(dev_bloom,size,dev_words,dev_positions[word]);
 	//if it has NOT been set.
 	if(dev_bloom[index]!=1){
@@ -273,9 +279,27 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,
 		if(random<prob){
 			dev_bloom[index] = 1;	
 		}
-	}		
+	}	
 }
 
+//Query words into the gpu bloom.
+__global__ void queryWordsGpuPBF(char* dev_bloom,
+	int size,char* dev_words,int* dev_positions, int numWords,
+	curandState* globalState,int* dev_results){
+
+	//Firstly, calculate the current index and the random probability.
+	int word = calculateCurrentWord();
+	if(word>=numWords)
+		return;
+
+	int randomIndex = word+threadIdx.y*numWords;	
+	curandState localState = globalState[randomIndex];
+	float random = curand_uniform(&localState);
+	globalState[randomIndex] = localState;
+	
+	int index = calculateIndex(dev_bloom,size,dev_words,dev_positions[word]);
+	atomicAdd(&dev_results[word],dev_bloom[index]);
+}
 
 
 /**
@@ -457,7 +481,7 @@ cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	cudaThreadSynchronize();
 	error = cudaGetLastError();
 	if(error!=cudaSuccess){
-		printf("could not generate \n");
+		printf("could not insert \n");
 		printf("%s \n",cudaGetErrorString(error));
 		printf("Blocks Per Row %i,%i \n",blockDimensions.x,blockDimensions.y);
 		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
@@ -468,6 +492,76 @@ cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	freeIntegers(dev_offsets);
 				
 	//Free the cuda random states.
+	freeCurandStates(dev_states);
+	return cudaSuccess;
+}
+
+/**
+* Responsible for counting ones into the PBF.
+*/
+extern cudaError_t countOnesPBF(char* dev_bloom,int size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,int* results){
+
+	//Calculate the dimensions and allocate the gpu memory required.
+	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,device);
+	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
+		device);
+
+	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
+	if(!dev_offsets){
+		printf("Could not allocate the offsets \n");
+		return cudaGetLastError();
+	}
+		
+	char* dev_words = allocateAndCopyChar(words,numBytes);
+	if(!dev_words){
+		printf("Could not allocate the words \n");;
+		return cudaGetLastError();
+	}
+
+	//Allocate the curand states.
+	//A new random value for each word.
+	curandState* dev_states = allocateCurandStates(numWords*numHashes);	
+	if(!dev_states){
+		printf("Could not allocate the states \n");
+		return cudaGetLastError();
+	}
+
+	//Seed the random values...	
+	initRand<<<blockDimensions,threadDimensions>>>(dev_states,
+		time(0),numWords);
+	
+	//Make sure we could initialize rand.
+	cudaThreadSynchronize();
+	cudaError_t error = cudaGetLastError();
+	if(error!=cudaSuccess){
+		printf("could not initialize rand \n");
+		printf("%s \n",cudaGetErrorString(error));
+		printf("Blocks Per Row %i,%i \n",blockDimensions.x,blockDimensions.y);
+		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
+		return error;
+	}	
+
+	int* dev_results = allocateAndCopyIntegers(results,numWords);
+		
+	queryWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,size,
+		dev_words,dev_offsets,numWords,dev_states,dev_results);	
+	//Make sure we could generate random numbers.
+	cudaThreadSynchronize();
+	error = cudaGetLastError();
+	if(error!=cudaSuccess){
+		printf("could not generate \n");
+		printf("%s \n",cudaGetErrorString(error));
+		printf("Blocks Per Row %i,%i \n",blockDimensions.x,blockDimensions.y);
+		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
+		return error;
+	}	
+	
+	copyIntegersToHost(results,dev_results,numWords);
+
+	freeIntegers(dev_results);
+	freeChars(dev_words);
+	freeIntegers(dev_offsets);
 	freeCurandStates(dev_states);
 	return cudaSuccess;
 }

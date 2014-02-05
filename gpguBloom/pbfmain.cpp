@@ -50,82 +50,77 @@ int main(int argc,char** argv){
 	int i = 0;
 	for(i = 0; i<bloomOptions_t.numBatches;i++){
 		WordAttributes* wordAttributes = loadFile(i);
-		
-		insertWordsPBF(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
-			wordAttributes->positions,wordAttributes->numWords,
-			wordAttributes->numBytes,bloomOptions_t.numHashes,
-			bloomOptions_t.device,bloomOptions_t.prob);
-		
+
+		//Insert some batches more frequently than others.
+		if(i<bloomOptions_t.trueBatches){
+			int x = 0;
+			for(;x<bloomOptions_t.numTrueBatchInsertions;x++){
+				insertWordsPBF(dev_bloom,bloomOptions_t.size,
+					wordAttributes->currentWords,
+					wordAttributes->positions,wordAttributes->numWords,
+					wordAttributes->numBytes,bloomOptions_t.numHashes,
+					bloomOptions_t.device,bloomOptions_t.prob);
+			}
+		}else{
+			insertWordsPBF(dev_bloom,bloomOptions_t.size,
+				wordAttributes->currentWords,
+				wordAttributes->positions,wordAttributes->numWords,
+				wordAttributes->numBytes,bloomOptions_t.numHashes,
+				bloomOptions_t.device,bloomOptions_t.prob);
+		}
 		freeWordAttributes(wordAttributes);
 	}
 
-	//Query Words
-	int numTrue = 0;
-	int numCalcTrue = 0;
-	int numFalse = 0;
-	int numCalcFalse = 0;	
+	int trueNumOnesCounted = 0;
+	int falseNumOnesCounted = 0;
 
 	//Query the words we know to be true.
 	i = 0;
 	for(;i<bloomOptions_t.trueBatches;i++){		
 		WordAttributes* wordAttributes = loadFile(i);
-		/*
-		numTrue += wordAttributes->numWords;
+		int* results = (int*)calloc(wordAttributes->numWords*sizeof(int),
+			sizeof(int));
 		
-		char* resultVector = (char*)malloc(sizeof(char)*wordAttributes->numWords);
-		memset(resultVector,1,wordAttributes->numWords);
-			
-		queryWords(dev_bloom,dev_size,wordAttributes->currentWords,
+		countOnesPBF(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
 			wordAttributes->positions,wordAttributes->numWords,
 			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
-			resultVector);	
-	
-		int x = 0;
-		for(x = 0; x<wordAttributes->numWords;x++){
-			if(resultVector[x]==1)
-				numCalcTrue+=1;
-			else
-				numCalcFalse+=1;
-		}
+			results);
 		
-		free(resultVector);
-		*/
+		int x = 0;
+		for(;x<wordAttributes->numWords;x++){
+			trueNumOnesCounted+=results[x];	
+		}	
+
+		
+		free(results);
 		freeWordAttributes(wordAttributes);
 	}
-	
-	for(i = 0;i<bloomOptions_t.falseBatches;i++){
-		WordAttributes* wordAttributes = loadFileByPrefix(i,(char*)"q");		
-		/*	
-		numFalse += wordAttributes->numWords;
-		char* resultVector = (char*)malloc(sizeof(char)*wordAttributes->numWords);
-		memset(resultVector,1,wordAttributes->numWords);		
 
-		queryWords(dev_bloom,dev_size,wordAttributes->currentWords,
+	
+	//Query the words we know to be false.	
+	for(i = 0;i<bloomOptions_t.falseBatches;i++){
+		WordAttributes* wordAttributes = loadFileByPrefix(i,(char*)"q");
+		int* results = (int*)calloc(wordAttributes->numWords*sizeof(int),
+			sizeof(int));
+
+		countOnesPBF(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
 			wordAttributes->positions,wordAttributes->numWords,
 			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
-			resultVector);	
+			results);
 
-	
 		int x = 0;
-		for(x = 0; x<wordAttributes->numWords;x++){
-			if(resultVector[x] == 0){
-				numCalcFalse+=1;
-			}else{
-				numCalcTrue+=1;
-			}
-		}
-		free(resultVector);
-		*/
+		for(;x<wordAttributes->numWords;x++){
+			falseNumOnesCounted+=results[x];	
+		}	
+
+		free(results);
 		freeWordAttributes(wordAttributes);		
 	}
 	
 
-	//Print the query stats.
-	printf("calcTrue: %i  KnownTrue: %i \ncalcFalse: %i  KnownFalse: %i\n",
-		numCalcTrue,numTrue,numCalcFalse,numFalse);
-
-
-
+	printf("TRUE,FALSE,TOTAL %i %i %i \n",trueNumOnesCounted,falseNumOnesCounted,
+		trueNumOnesCounted+falseNumOnesCounted);
+	
 	//Copy the bloom filter to main memory.	
 	copyCharsToHost(bloom,dev_bloom,bloomOptions_t.size);
 	//Free the bloom filter.
