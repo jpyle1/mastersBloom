@@ -3,9 +3,10 @@
 /**
 * Allocates curand states.
 */
-extern curandState* allocateCurandStates(int length){
+curandState* allocateCurandStates(int length){
 	curandState* dev_states;
-	cudaError_t result = cudaMalloc((void**)&dev_states,length*sizeof(int));
+	cudaError_t result = cudaMalloc((void**)&dev_states,
+		length*sizeof(curandState));
 	if(result!=cudaSuccess){
 		printf("Could not allocate memory for the integers");
 		return 0;
@@ -16,7 +17,7 @@ extern curandState* allocateCurandStates(int length){
 /**
 * Frees curandStates.
 */
-extern cudaError_t freeCurandStates(curandState* dev_states){
+cudaError_t freeCurandStates(curandState* dev_states){
 	return cudaFree(dev_states);
 }
 
@@ -245,7 +246,8 @@ __global__ void initRand(curandState* state,unsigned long seed,int numWords){
 	int index = calculateCurrentWord();
 	if(index>=numWords)
 		return;
-	curand_init(seed,index+threadIdx.y,0,&state[index+threadIdx.y]);
+	int randomIndex = index+threadIdx.y*numWords;	
+	curand_init(seed,randomIndex,0,&state[randomIndex]);
 }
 
 //Insert words into the gpu bloom.
@@ -258,9 +260,11 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,
 	if(word>=numWords)
 		return;
 
-	curandState localState = globalState[word+threadIdx.y];
+	int randomIndex = word+threadIdx.y*numWords;	
+	curandState localState = globalState[randomIndex];
 	float random = curand_uniform(&localState);
-	globalState[word+threadIdx.y] = localState;
+	globalState[randomIndex] = localState;
+	
 	
 	int index = calculateIndex(dev_bloom,size,dev_words,dev_positions[word]);
 	//if it has NOT been set.
@@ -428,6 +432,7 @@ cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	//A new random value for each word.
 	curandState* dev_states = allocateCurandStates(numWords*numHashes);	
 	if(!dev_states){
+		printf("Could not allocate the states \n");
 		return cudaGetLastError();
 	}
 
