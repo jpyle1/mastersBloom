@@ -13,8 +13,9 @@ void printHelp(){
 	printf("--numBatches [num] -n [num] How many batches should be inserted.\
 		Note, a subset of these will be included as a true batch in the query. \n");
 	printf("--generate  Describes if data files should be generated. \n");
-	printf("--file [fileName] -f[fileName] Where the bloom filter should be outputted to.");
-	printf("--trueBatches [num] -tb [num] Number of true batches \n");
+	printf("--file [fileName] -f[fileName] Where the bloom filter should be 
+		outputted to.");
+	printf("--trueBatches [num] -tb [num] The size of the subset of the number of\		inserted batches that will be queried as true \n");
 	printf("--falseBatches [num] -fb [num] Number of false batches \n");
 	printf("--numTrueBatchInsertions [num] -ntbi Number of times to insert\
 		a true batch. This is only for the PBF. \n");
