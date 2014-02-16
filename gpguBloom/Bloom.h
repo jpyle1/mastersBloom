@@ -4,15 +4,6 @@
 #include <curand_kernel.h>
 #include <time.h>
 
-/**
-* Allocates curand states.
-*/
-extern curandState* allocateCurandStates(int length);
-
-/**
-* Frees curandStates.
-*/
-extern cudaError_t freeCurandStates(curandState* dev_states);
 
 /**
 * Allocates an Integer array to the cuda device.
