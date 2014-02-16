@@ -300,8 +300,8 @@ cudaError_t insertWords(char* dev_bloom,int size,char* words,
 		return error;
 	}
 
-	freeChars(dev_words);
-	freeIntegers(dev_offsets);
+	if(!freeChars(dev_words) || !freeIntegers(dev_offsets))
+		return cudaGetLastError();
 
 	return cudaSuccess;			 				
 }
@@ -345,11 +345,7 @@ cudaError_t queryWords(char* dev_bloom,int size,char* words,
 		,dev_words,dev_offsets,dev_results,numWords,numHashes,
 		numRowPerHash);
 	cudaThreadSynchronize();
-	copyCharsToHost(results,dev_results,numWords);
-	freeChars(dev_words);
-	freeChars(dev_results);
-	freeIntegers(dev_offsets);
-	
+		
 	//Check for errorrs...
 	cudaError_t error = cudaGetLastError();
 	if(error!=cudaSuccess){
@@ -359,7 +355,13 @@ cudaError_t queryWords(char* dev_bloom,int size,char* words,
 		printf("BlockDim: %i,%i \n",blockDimensions.x,blockDimensions.y);
 		return error;
 	}
-	
+
+	if(!copyCharsToHost(results,dev_results,numWords) ||
+		!freeChars(dev_words) ||
+		!freeChars(dev_results) ||
+		!freeIntegers(dev_offsets))
+			return cudaGetLastError();
+
 	return cudaSuccess;			 				
 }
 
