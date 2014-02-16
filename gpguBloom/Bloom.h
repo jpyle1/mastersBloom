@@ -28,16 +28,6 @@ extern int* allocateAndCopyIntegers(int* array,int length);
 extern cudaError_t freeIntegers(int* dev_array);
 
 /**
-* Alloctes a Float array to the cuda device.
-*/
-extern float* allocateAndCopyFloats(float* array,int length);
-
-/**
-* Frees Floats copied into a cuda array.
-*/
-extern cudaError_t freeFloats(float* dev_float);
-
-/**
 * Allocates a character array to the cuda device.
 * @param array
 */
@@ -58,23 +48,6 @@ extern cudaError_t freeChars(char* dev_array);
 extern cudaError_t copyCharsToHost(char* array,char* dev_array,int length);
 
 /**
-* Responsible for calculating the dimenions of the gpu layout being used.
-* @param numWords
-* @param numHash
-* @param device
-*/
-extern dim3 calculateThreadDimensions(int numWords,int numHash,int device);
-
-/**
-* Responsible for calculating the thread dimensions of the gpu layout.
-* @param threadDimensions the dimensions of the thread block.
-* @param numWords The total number of words being inserted.
-* @param device The id of the device being used.
-*/
-extern dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords, 
-	int device);
-
-/**
 * Responsible for inserting words into the bloom filter.
 */
 extern cudaError_t insertWords(char* dev_bloom,int size,char* words,
@@ -86,32 +59,4 @@ extern cudaError_t insertWords(char* dev_bloom,int size,char* words,
 extern cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	int* offsets,int numWords,int numBytes,int numHashes,int device,
 		char* result);
-
-/**
-* Responsible for calculating the dimenions of the gpu layout being used.
-* @param numWords
-* @param numHash
-* @param device
-*/
-extern dim3 calculateThreadDimensions(int numWords,int numHash,int device);
-
-/**
-* Responsible for calculating the thread dimensions of the gpu layout.
-* @param threadDimensions the dimensions of the thread block.
-* @param device The id of the device being used.
-*/
-extern dim3 calculateBlockDimensions(dim3 threadDimensions,int numWords,
-	int device);
-
-/**
-* Responsible for inserting words into the PBF.
-*/
-extern cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
-	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob);
-
-/**
-* Responsible for counting ones into the PBF.
-*/
-extern cudaError_t countOnesPBF(char* dev_bloom,int size,char* words,
-	int* offsets,int numWords,int numBytes,int numHashes,int device,int* results);
 

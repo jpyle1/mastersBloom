@@ -20,7 +20,7 @@ int main(int argc,char** argv){
 	//Parse the user's configuration.
 	getConfiguration(&bloomOptions_t,argv,argc);
 
-	if(!wasArgSpecified("--silent",argv,argc)!=0)
+	if(!wasArgSpecified("--silent",argv,argc))
 		showDetails(&bloomOptions_t);
 
 	//Do we need to generate new test files?
@@ -55,6 +55,7 @@ int main(int argc,char** argv){
 		freeWordAttributes(wordAttributes);
 	}
 
+	/*
 	//Query Words
 	int numTrue = 0;
 	int numCalcTrue = 0;
@@ -116,7 +117,7 @@ int main(int argc,char** argv){
 	printf("calcTrue: %i  KnownTrue: %i \ncalcFalse: %i  KnownFalse: %i\n",
 		numCalcTrue,numTrue,numCalcFalse,numFalse);
 
-
+	*/
 
 	//Copy the bloom filter to main memory.	
 	copyCharsToHost(bloom,dev_bloom,bloomOptions_t.size);
