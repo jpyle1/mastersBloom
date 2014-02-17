@@ -55,14 +55,73 @@ int main(int argc,char** argv){
 	//Insert items into the bloom filter.
 	int i = 0;
 	for(i = 0; i<bloomOptions_t.numBatches;i++){
+		randOffset = rand()%2432+10;
+		int z = 0;
+		for(; z<randOffset;z++){
+		}		
 		WordAttributes* wordAttributes = loadFile(i);
-		printf("%i \n",wordAttributes->numWords);
 		insertWordsPBF(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
 			wordAttributes->positions,wordAttributes->numWords,
 			wordAttributes->numBytes,bloomOptions_t.numHashes,
 			bloomOptions_t.device,bloomOptions_t.prob);
 		freeWordAttributes(wordAttributes);
 	}
+	
+	//Stats.
+	int trueNumOnesCounted = 0;
+	int falseNumOnesCounted = 0;
+	
+	//Query the words we know to be true...
+	i = 0;
+	for(;i<bloomOptions_t.trueBatches;i++){
+		WordAttributes* wordAttributes = loadFile(i);
+		int* results = (int*)calloc(wordAttributes->numWords*sizeof(int),
+			sizeof(int));
+		queryWordsPBF(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
+			wordAttributes->positions,wordAttributes->numWords,
+			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
+			results);
 
+		int x  = 0;
+		for(;x<wordAttributes->numWords;x++){
+			trueNumOnesCounted+=results[x];
+		}	
+		free(results);
+		freeWordAttributes(wordAttributes);
+	}
 
+	//Query the words we know to be false...
+	for(i = 0;i<bloomOptions_t.falseBatches;i++){
+		
+		WordAttributes* wordAttributes = loadFileByPrefix(i,(char*)"q");
+		int* results = (int*)calloc(wordAttributes->numWords*sizeof(int),
+			sizeof(int));
+		
+		queryWordsPBF(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
+			wordAttributes->positions,wordAttributes->numWords,
+			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
+			results);
+
+		int x = 0;	
+		for(;x<wordAttributes->numWords;x++){
+			falseNumOnesCounted+=results[x];
+		}	
+		
+		free(results);
+		freeWordAttributes(wordAttributes);
+		
+	}
+	
+	printf("TRUE,FALSE,TOTAL %i,%i,%i \n",trueNumOnesCounted,falseNumOnesCounted,
+		trueNumOnesCounted+falseNumOnesCounted);
+	
+	//Copy the bloom filter to main memory.
+	copyCharsToHost(bloom,dev_bloom,bloomOptions_t.size);
+	freeChars(dev_bloom);
+	//Output the bloom filter
+	if(bloomOptions_t.fileName!=0){
+		writeBloomFilterToFile(&bloomOptions_t,bloom);
+	}	
+	free(bloom);
+	return 0;
 }

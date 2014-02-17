@@ -264,8 +264,8 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
 	int fy = ((blockIdx.y%numRowsPerHash)*(blockDim.y-1)+threadIdx.y);
 	clock_t currentTime = clock();
 	unsigned int randVal = 
-		get_random(currentTime,(unsigned long)(setIdx*threadIdx.x*fy+setIdx));
-	float calcProb = (float)randVal/(UINT_MAX);
+		get_random(currentTime,(unsigned long)(currentTime*(fy+1)*(threadIdx.x+1)));
+	float calcProb = (float)randVal*2.5f/(UINT_MAX);
 	//If the number of hash functions was exceeded.
 	if(setIdx<0)
 		return;

@@ -6,6 +6,8 @@ make reg: bin/ bin/main.exe
 
 make pbf: bin/ bin/pbfmain.exe
 
+make pbfReg: bin/ bin/pbfReg.exe
+
 bin/: 
 	mkdir bin
 
@@ -37,6 +39,10 @@ bin/gpuMain.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o gpguBloom
 
 bin/pbfmain.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o gpguBloom/pbfmain.cpp bin/bloom.o gpguBloom/Bloom.h
 	$(NVCC) -arch=sm_20 -o bin/pbfmain.exe gpguBloom/pbfmain.cpp  bin/ParseArgs.o bin/RandomGenerator.o bin/ParseData.o bin/bloom.o
+
+bin/pbfReg.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o regularBloom/pbfReg.cpp bin/Hash.o
+	g++ regularBloom/pbfReg.cpp bin/ParseArgs.o bin/RandomGenerator.o bin/Hash.o bin/ParseData.o -o bin/pbfReg.exe
+
 
 bin/bloom.o: gpguBloom/bloom.cu
 	$(NVCC) -arch=sm_20 -c gpguBloom/bloom.cu 
