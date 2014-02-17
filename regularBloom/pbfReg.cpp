@@ -80,6 +80,7 @@ int main(int argc,char** argv){
 	}
 	//Create the bloom filter eing used, and initailize with all 0's.
 	char* bloom = (char*)calloc(sizeof(char)*bloomOptions_t.size,sizeof(char));
+	int totalNumWords = 0;
 	int i = 0;
 	for(i = 0;i<bloomOptions_t.numBatches;i++){
 		//Do we need to insert it multiple times?
@@ -87,12 +88,15 @@ int main(int argc,char** argv){
 			int y = 0;
 			for(;y<bloomOptions_t.numTrueBatchInsertions;y++){
 				WordAttributes* wordAttributes = loadFile(i);
+				if(y == 0)
+					totalNumWords+=wordAttributes->numWords;
 				insertWords(bloom,&bloomOptions_t,wordAttributes,bloomOptions_t.prob);
 				freeWordAttributes(wordAttributes);
 			}
 		}else{
 			//Only insert it once.
 			WordAttributes* wordAttributes = loadFile(i);
+			totalNumWords+=wordAttributes->numWords;
 			insertWords(bloom,&bloomOptions_t,wordAttributes,bloomOptions_t.prob);
 			freeWordAttributes(wordAttributes);
 		}
@@ -128,9 +132,11 @@ int main(int argc,char** argv){
 		freeWordAttributes(wordAttributes);
 	}	
 
+	/*
 	printf("TRUE,FALSE,TOTAL %i,%i,%i \n",numTrueOnesCalculated,
 		numFalseOnesCalculated,(numTrueOnesCalculated+numFalseOnesCalculated));
-		
+	*/		
+
 	if(bloomOptions_t.fileName!=0){
 		writeBloomFilterToFile(&bloomOptions_t,bloom);
 	}

@@ -135,8 +135,8 @@ void getConfiguration(BloomOptions_t* bloomOptions,char** args,int argc){
 	if(value!=0){
 		bloomOptions->prob = atof(value);
 	}
-	value = getArgValue("--pbfOuptut",args,argc);
-	if(!value){
+	value = getArgValue("--pbfOutput",args,argc);
+	if(value!=0){
 		bloomOptions->pbfOutput = value;
 	}
 }
@@ -156,6 +156,7 @@ void setDefault(BloomOptions_t* bloomOptions){
 	bloomOptions->falseBatches=5;
 	bloomOptions->numTrueBatchInsertions=10;
 	bloomOptions->prob = .2f;
+	bloomOptions->pbfOutput = 0;
 }
 
 

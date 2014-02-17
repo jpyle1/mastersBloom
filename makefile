@@ -1,13 +1,15 @@
 NVCC = /usr/local/cuda/bin/nvcc
 
-make gpu: bin/ bin/gpuMain.exe
+make gpu: data/ bin/ bin/gpuMain.exe
 
-make reg: bin/ bin/main.exe 
+make reg: data/ bin/ bin/main.exe 
 
-make pbf: bin/ bin/pbfmain.exe
+make pbf: data/ bin/ bin/pbfmain.exe
 
-make pbfReg: bin/ bin/pbfReg.exe
+make pbfReg: data/ bin/ bin/pbfReg.exe
 
+data/:
+	mkdir data
 bin/: 
 	mkdir bin
 
@@ -50,6 +52,7 @@ bin/bloom.o: gpguBloom/bloom.cu
 	
 clean:
 	rm -rf bin
+	rm -rf data
 	rm *.txt
 	
 run: 
