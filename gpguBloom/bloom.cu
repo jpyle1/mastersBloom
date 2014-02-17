@@ -212,6 +212,17 @@ __device__ int calculateIndex(char* dev_bloom,int size,char* dev_words,
 }
 
 /**
+* Multiply with carry. Psuedo random number generation.
+* @param m_w The first seed.
+* @param m_z The second seed.
+*/
+__device__ unsigned int get_random(unsigned long m_w,unsigned long m_z){
+	m_z = 36969 * (m_z & 65535) + (m_z >> 16);
+	m_w = 18000 * (m_w & 65535) + (m_w >> 16);
+	return (unsigned int)((m_z << 16) + m_w);
+} 
+
+/**
 * Responsible for inserting words using the gpu.
 * @param dev_bloom The bloom filter being used.
 * @param dev_size The size of the bloom filter being used.
@@ -234,6 +245,37 @@ __global__ void insertWordsGpu(char* dev_bloom,int size,char* dev_words,
 }
 
 /**
+* Responsible for inserting words using the gpu.
+* @param dev_bloom The bloom filter being used.
+* @param dev_size The size of the bloom filter being used.
+* @param dev_words The words being inserted.
+* @param dev_positions The starting positions of the words.
+* @param dev_numWords The number of words being inserted.
+* @param numHashes The number of hash functions used.
+*/
+__global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
+	int* dev_positions,int numWords,int numHashes,int numRowsPerHash,float prob){
+	int currentWord = calculateCurrentWord(numRowsPerHash);
+	if(currentWord>=numWords)
+		return;
+	int wordStartingPosition = dev_positions[currentWord]; 	
+	int setIdx = calculateIndex(dev_bloom,size,dev_words,
+		wordStartingPosition,numHashes,numRowsPerHash);
+	int fy = ((blockIdx.y%numRowsPerHash)*(blockDim.y-1)+threadIdx.y);
+	clock_t currentTime = clock();
+	unsigned int randVal = 
+		get_random(currentTime,(unsigned long)(setIdx*threadIdx.x*fy+setIdx));
+	float calcProb = (float)randVal/(UINT_MAX);
+	//If the number of hash functions was exceeded.
+	if(setIdx<0)
+		return;
+	if(dev_bloom[setIdx]==0 && calcProb<prob){
+		dev_bloom[setIdx]=1;
+	}
+}
+
+
+/**
 * Responsible for querying words using the gpu.
 */
 __global__ void queryWordsGpu(char* dev_bloom,int size,char* dev_words,
@@ -254,6 +296,26 @@ __global__ void queryWordsGpu(char* dev_bloom,int size,char* dev_words,
 		dev_results[currentWord]=0;
 	}
 }
+
+/**
+* Responsible for querying words using the gpu.
+*/
+__global__ void queryWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
+	int* dev_positions,int* dev_results,int numWords,int numHashes,
+	int numRowsPerHash){
+
+	int currentWord = calculateCurrentWord(numRowsPerHash);
+	if(currentWord>=numWords)
+		return;
+
+	int wordStartingPosition = dev_positions[currentWord]; 
+	int getIdx = calculateIndex(dev_bloom,size,dev_words,
+		wordStartingPosition,numHashes,numRowsPerHash);
+	if(getIdx<0)
+		return;
+	atomicAdd(&dev_results[currentWord],dev_bloom[getIdx]);
+}
+
 
 /**
 * Responsible for inserting words into the bloom filter.
@@ -304,6 +366,58 @@ cudaError_t insertWords(char* dev_bloom,int size,char* words,
 		return cudaGetLastError();
 
 	return cudaSuccess;			 				
+}
+
+/**
+* Responsible for inserting words into the PBF bloom filter.
+*/
+cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob){
+
+	//Get the device information being used.
+	cudaDeviceProp deviceProps;
+	cudaGetDeviceProperties(&deviceProps,device);
+
+	//Calculate the dimensions needed.
+	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,
+		&deviceProps);
+	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
+		numHashes,&deviceProps);
+	//Calculate the number of extra rows to calculate hashes >1024.
+	int numRowPerHash = numHashes/deviceProps.maxThreadsPerBlock + 
+		(numHashes%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
+
+	//Allocate the information.
+	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
+	if(!dev_offsets){
+		return cudaGetLastError();
+	}
+		
+	char* dev_words = allocateAndCopyChar(words,numBytes);
+	if(!dev_words){
+		return cudaGetLastError();
+	}
+
+	//Actually insert the words.
+	insertWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,size
+		,dev_words,dev_offsets,numWords,numHashes,numRowPerHash,prob);
+	cudaThreadSynchronize();
+
+	//Check for errorrs...
+	cudaError_t error = cudaGetLastError();
+	if(error!=cudaSuccess){
+		printf("%s \n",cudaGetErrorString(error));
+		printf("Dimensions calculated: \n");
+		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
+		printf("BlockDim: %i,%i \n",blockDimensions.x,blockDimensions.y);
+		return error;
+	}
+
+	if(!freeChars(dev_words) || !freeIntegers(dev_offsets))
+		return cudaGetLastError();
+
+	return cudaSuccess;			 				
+
 }
 
 /**
@@ -365,6 +479,61 @@ cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	return cudaSuccess;			 				
 }
 
+cudaError_t queryWordsPBF(char* dev_bloom,int size,char* words,
+	int* offsets,int numWords,int numBytes,int numHashes,int device,
+		int* results){
+
+	//Get the device information being used.
+	cudaDeviceProp deviceProps;
+	cudaGetDeviceProperties(&deviceProps,device);
+
+	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,
+		&deviceProps);
+	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
+		numHashes,&deviceProps);
+
+	int numRowPerHash = numHashes/deviceProps.maxThreadsPerBlock + 
+		(numHashes%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
+
+	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
+	if(!dev_offsets){
+		return cudaGetLastError();
+	}
+		
+	char* dev_words = allocateAndCopyChar(words,numBytes);
+	if(!dev_words){
+		return cudaGetLastError();
+	}
+
+	int* dev_results = allocateAndCopyIntegers(results,numWords);
+	if(!dev_results){
+		return cudaGetLastError();
+	}
+
+	//Actually query the words.
+	queryWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,size
+		,dev_words,dev_offsets,dev_results,numWords,numHashes,
+		numRowPerHash);
+	cudaThreadSynchronize();
+		
+	//Check for errorrs...
+	cudaError_t error = cudaGetLastError();
+	if(error!=cudaSuccess){
+		printf("%s \n",cudaGetErrorString(error));
+		printf("Dimensions calculated: \n");
+		printf("threadDim: %i,%i \n",threadDimensions.x,threadDimensions.y); 
+		printf("BlockDim: %i,%i \n",blockDimensions.x,blockDimensions.y);
+		return error;
+	}
+
+	if(!copyIntegersToHost(results,dev_results,numWords) ||
+		!freeChars(dev_words) ||
+		!freeIntegers(dev_results) ||
+		!freeIntegers(dev_offsets))
+			return cudaGetLastError();
+
+	return cudaSuccess;			 				
+}
 
 
 
