@@ -12,7 +12,7 @@ void insertWords(char* bloom,BloomOptions_t* bloomOptions_t,
 	int numWordsProcessed = 0;
 	for(;numWordsProcessed<wordAttributes->numWords;numWordsProcessed++){
 		int y = 0;
-		for(;y<wordAttributes->numWords;y++){
+		for(;y<bloomOptions_t->numHashes;y++){
 			unsigned long firstValue = djb2HashOffset(wordAttributes->currentWords,
 				wordAttributes->positions[numWordsProcessed])%bloomOptions_t->size;
 			unsigned long secondValue = sdbmHashOffset(wordAttributes->currentWords,
@@ -82,9 +82,20 @@ int main(int argc,char** argv){
 	char* bloom = (char*)calloc(sizeof(char)*bloomOptions_t.size,sizeof(char));
 	int i = 0;
 	for(i = 0;i<bloomOptions_t.numBatches;i++){
-		WordAttributes* wordAttributes = loadFile(i);
-		insertWords(bloom,&bloomOptions_t,wordAttributes,bloomOptions_t.prob);
-		freeWordAttributes(wordAttributes);
+		//Do we need to insert it multiple times?
+		if(i<bloomOptions_t.trueBatches){
+			int y = 0;
+			for(;y<bloomOptions_t.numTrueBatchInsertions;y++){
+				WordAttributes* wordAttributes = loadFile(i);
+				insertWords(bloom,&bloomOptions_t,wordAttributes,bloomOptions_t.prob);
+				freeWordAttributes(wordAttributes);
+			}
+		}else{
+			//Only insert it once.
+			WordAttributes* wordAttributes = loadFile(i);
+			insertWords(bloom,&bloomOptions_t,wordAttributes,bloomOptions_t.prob);
+			freeWordAttributes(wordAttributes);
+		}
 	}
 
 	//Get the stats...

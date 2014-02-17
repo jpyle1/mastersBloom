@@ -8,19 +8,16 @@ void printHelp(){
 	printf("\n===============\n");
 	printf("--size [num] -s [num] The size of the bloom filter in bits. \n");
 	printf("--hashes [num] -h [num] The number of hash functions per word inserted \n");
-	printf("--batchSize [num] -b [num] Holds the size of the batch. \n");
+	printf("--batchSize [num] -b [num] Holds the size of the batch being inserted. \n");
 	printf("--help\n");
-	printf("--numBatches [num] -n [num] How many batches should be inserted.\
-		Note, a subset of these will be included as a true batch in the query. \n");
+	printf("--numBatches [num] -n [num] How many batches should be inserted.\n Note, a subset of these will be included as a true batch in the query. \n");
 	printf("--generate  Describes if data files should be generated. \n");
-	printf("--file [fileName] -f[fileName] Where the bloom filter should be\
-		outputted to.");
-	printf("--trueBatches [num] -tb [num] The size of the subset of the number\
-		of	inserted batches that will be queried as true \n");
+	printf("--file [fileName] -f[fileName] Where the bloom filter should be outputted to. \n");
+	printf("--trueBatches [num] -tb [num] The size of the subset of the number of	inserted batches that will be queried as true \n");
 	printf("--falseBatches [num] -fb [num] Number of false batches \n");
-	printf("--numTrueBatchInsertions [num] -ntbi Number of times to insert\
-		a true batch. This is only for the PBF. \n");
+	printf("--numTrueBatchInsertions [num] -ntbi Number of times to insert a true batch. \n This is only for the PBF. \n");
 	printf("--prob [float] -p [float] The probabiltiy  (PBF Only) \n");
+	printf("--pbfOutput [fileName] The output of the PBF stats. (PBF)\n");
 	printf("\n===============\n");
 }
 
@@ -138,7 +135,10 @@ void getConfiguration(BloomOptions_t* bloomOptions,char** args,int argc){
 	if(value!=0){
 		bloomOptions->prob = atof(value);
 	}
-
+	value = getArgValue("--pbfOuptut",args,argc);
+	if(!value){
+		bloomOptions->pbfOutput = value;
+	}
 }
 
 /**

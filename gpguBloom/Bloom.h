@@ -48,7 +48,8 @@ extern cudaError_t insertWords(char* dev_bloom,int size,char* words,
 * Responsible for inserting words into the PBF bloom filter.
 */
 extern cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
-	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob);
+	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob,
+	int randOffset);
 
 
 /**

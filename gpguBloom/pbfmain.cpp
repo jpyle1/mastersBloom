@@ -9,10 +9,6 @@ int main(int argc,char** argv){
 	
 	//Seed the timer.
 	srand(time(0));
-	int randOffset = rand()%2432+10;
-	for(int i = 0; i<randOffset;i++){
-	}		
-
 
 	/**
 	* Does the user need help?
@@ -55,16 +51,31 @@ int main(int argc,char** argv){
 	//Insert items into the bloom filter.
 	int i = 0;
 	for(i = 0; i<bloomOptions_t.numBatches;i++){
-		randOffset = rand()%2432+10;
-		int z = 0;
-		for(; z<randOffset;z++){
-		}		
-		WordAttributes* wordAttributes = loadFile(i);
-		insertWordsPBF(dev_bloom,bloomOptions_t.size,wordAttributes->currentWords,
-			wordAttributes->positions,wordAttributes->numWords,
-			wordAttributes->numBytes,bloomOptions_t.numHashes,
-			bloomOptions_t.device,bloomOptions_t.prob);
-		freeWordAttributes(wordAttributes);
+
+		//Do we need to insert it multiple times?
+		if(i<bloomOptions_t.trueBatches){
+			int y = 0;
+			for(y = 0;y<bloomOptions_t.numTrueBatchInsertions;y++){
+				int randOffset = rand()%2432+10;
+				WordAttributes* wordAttributes = loadFile(i);
+				insertWordsPBF(dev_bloom,bloomOptions_t.size,
+					wordAttributes->currentWords,
+					wordAttributes->positions,wordAttributes->numWords,
+					wordAttributes->numBytes,bloomOptions_t.numHashes,
+					bloomOptions_t.device,bloomOptions_t.prob,randOffset);
+				freeWordAttributes(wordAttributes);
+			}
+		}else{
+			//Only insert it once.
+			int randOffset = rand()%2432+10;
+			WordAttributes* wordAttributes = loadFile(i);
+			insertWordsPBF(dev_bloom,bloomOptions_t.size,
+				wordAttributes->currentWords,
+				wordAttributes->positions,wordAttributes->numWords,
+				wordAttributes->numBytes,bloomOptions_t.numHashes,
+				bloomOptions_t.device,bloomOptions_t.prob,randOffset);
+			freeWordAttributes(wordAttributes);
+		}
 	}
 	
 	//Stats.

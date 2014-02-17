@@ -76,6 +76,11 @@ typedef struct BloomOptions{
 	char* fileName;
 
 	/**
+	* Determines where the output of the PBF stats should go.
+	*/
+	char* pbfOutput;
+
+	/**
 	* Determines the float of the probability being used.
 	*/
 	float prob;

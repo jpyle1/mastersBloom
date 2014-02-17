@@ -217,9 +217,12 @@ __device__ int calculateIndex(char* dev_bloom,int size,char* dev_words,
 * @param m_z The second seed.
 */
 __device__ unsigned int get_random(unsigned long m_w,unsigned long m_z){
-	m_z = 36969 * (m_z & 65535) + (m_z >> 16);
-	m_w = 18000 * (m_w & 65535) + (m_w >> 16);
-	return (unsigned int)((m_z << 16) + m_w);
+	int i = 0;
+	for(;i<100;i++){
+		m_z = 36969 * (m_z & 65535) + (m_z >> 16);
+		m_w = 18000 * (m_w & 65535) + (m_w >> 16);
+	}
+	return (unsigned int)((m_z << 16) + m_w)%1000000;
 } 
 
 /**
@@ -254,7 +257,8 @@ __global__ void insertWordsGpu(char* dev_bloom,int size,char* dev_words,
 * @param numHashes The number of hash functions used.
 */
 __global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
-	int* dev_positions,int numWords,int numHashes,int numRowsPerHash,float prob){
+	int* dev_positions,int numWords,int numHashes,int numRowsPerHash,float prob,
+	int randOffset){
 	int currentWord = calculateCurrentWord(numRowsPerHash);
 	if(currentWord>=numWords)
 		return;
@@ -262,10 +266,9 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
 	int setIdx = calculateIndex(dev_bloom,size,dev_words,
 		wordStartingPosition,numHashes,numRowsPerHash);
 	int fy = ((blockIdx.y%numRowsPerHash)*(blockDim.y-1)+threadIdx.y);
-	clock_t currentTime = clock();
 	unsigned int randVal = 
-		get_random(currentTime,(unsigned long)(currentTime*(fy+1)*(threadIdx.x+1)));
-	float calcProb = (float)randVal*2.5f/(UINT_MAX);
+		get_random(randOffset,(unsigned long)(randOffset*setIdx+fy));
+	float calcProb = (float)randVal/(1000000.0f);
 	//If the number of hash functions was exceeded.
 	if(setIdx<0)
 		return;
@@ -372,7 +375,8 @@ cudaError_t insertWords(char* dev_bloom,int size,char* words,
 * Responsible for inserting words into the PBF bloom filter.
 */
 cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
-	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob){
+	int* offsets,int numWords,int numBytes,int numHashes,int device,float prob,
+	int randOffset){
 
 	//Get the device information being used.
 	cudaDeviceProp deviceProps;
@@ -400,7 +404,7 @@ cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 
 	//Actually insert the words.
 	insertWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,size
-		,dev_words,dev_offsets,numWords,numHashes,numRowPerHash,prob);
+		,dev_words,dev_offsets,numWords,numHashes,numRowPerHash,prob,randOffset);
 	cudaThreadSynchronize();
 
 	//Check for errorrs...
