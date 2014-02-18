@@ -1,5 +1,6 @@
 #include "../RandomGenerator.h"
 #include "../ParseData.h"
+#include "../PBFStats.h"
 #include "Bloom.h"
 #include <time.h>
 #include <math.h>
@@ -83,11 +84,7 @@ int main(int argc,char** argv){
 			freeWordAttributes(wordAttributes);
 		}
 	}
-	
-	//Stats.
-	int trueNumOnesCounted = 0;
-	int falseNumOnesCounted = 0;
-	
+		
 	FILE* pbfOutput = 0;
 	if(bloomOptions_t.pbfOutput){
 		pbfOutput = fopen(bloomOptions_t.pbfOutput,"w+");
@@ -107,37 +104,11 @@ int main(int argc,char** argv){
 			wordAttributes->positions,wordAttributes->numWords,
 			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
 			results);
-
-		int x  = 0;
-		for(;x<wordAttributes->numWords;x++){
-			trueNumOnesCounted+=results[x];
-			if(bloomOptions_t.pbfOutput){
-				float a = (float)bloomOptions_t.numHashes*totalNumWords*
-					bloomOptions_t.prob+bloomOptions_t.size*logf(1-(float)
-					results[x]/bloomOptions_t.numHashes); 
-				float b = (float)(bloomOptions_t.numHashes-bloomOptions_t.size)*
-					bloomOptions_t.prob;
-				float f =	a/b;
-				a = ((float)bloomOptions_t.numHashes*bloomOptions_t.prob*
-					totalNumWords+bloomOptions_t.size*logf(1-(float)results[x]
-						/bloomOptions_t.numHashes+(float)1.96*sqrt((1-(float)
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes)*
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes/
-						bloomOptions_t.numHashes)));
-				b = (float)(bloomOptions_t.numHashes-bloomOptions_t.size)*
-					bloomOptions_t.prob;	
-				float f_min = a/b;
-				a = ((float)bloomOptions_t.numHashes*bloomOptions_t.prob*
-					totalNumWords+bloomOptions_t.size*logf(1-(float)results[x]
-						/bloomOptions_t.numHashes-(float)1.96*sqrt((1-(float)
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes)*
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes/
-						bloomOptions_t.numHashes)));
-				float f_max =  a/b;
-				fprintf(pbfOutput,"%i,%i,%i,%.6f,%.6f,%.6f,\n",i,x,results[x],f,
-					f_min,f_max); 
-			}
-		}	
+		if(bloomOptions_t.pbfOutput){
+			writeStats(pbfOutput,i,results,wordAttributes->numWords,
+				bloomOptions_t.numHashes,bloomOptions_t.prob,wordAttributes->numWords,	
+				bloomOptions_t.size);
+		}
 		free(results);
 		freeWordAttributes(wordAttributes);
 	}
@@ -154,48 +125,16 @@ int main(int argc,char** argv){
 			wordAttributes->numBytes,bloomOptions_t.numHashes,bloomOptions_t.device,
 			results);
 
-		int x = 0;	
-		for(;x<wordAttributes->numWords;x++){
-			falseNumOnesCounted+=results[x];
-			if(bloomOptions_t.pbfOutput){
-				float a = (float)bloomOptions_t.numHashes*totalNumWords*
-					bloomOptions_t.prob+bloomOptions_t.size*logf(1-(float)
-					results[x]/bloomOptions_t.numHashes); 
-				float b = (float)(bloomOptions_t.numHashes-bloomOptions_t.size)*
-					bloomOptions_t.prob;
-				float f =	a/b;
-				a = ((float)bloomOptions_t.numHashes*bloomOptions_t.prob*
-					totalNumWords+bloomOptions_t.size*logf(1-(float)results[x]
-						/bloomOptions_t.numHashes+(float)1.96*sqrt((1-(float)
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes)*
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes/
-						bloomOptions_t.numHashes)));
-				b = (float)(bloomOptions_t.numHashes-bloomOptions_t.size)*
-					bloomOptions_t.prob;	
-				float f_min = a/b;
-				a = ((float)bloomOptions_t.numHashes*bloomOptions_t.prob*
-					totalNumWords+bloomOptions_t.size*logf(1-(float)results[x]
-						/bloomOptions_t.numHashes-(float)1.96*sqrt((1-(float)
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes)*
-						(bloomOptions_t.numHashes-results[x])/bloomOptions_t.numHashes/
-						bloomOptions_t.numHashes)));
-				float f_max =  a/b;
-				fprintf(pbfOutput,"q%i,%i,%i,%.6f,%.6f,%.6f,\n",i,x,results[x],f,
-					f_min,f_max); 
 
-
-			}
-		}	
+		if(bloomOptions_t.pbfOutput)
+			writeStats(pbfOutput,i,results,wordAttributes->numWords,
+				bloomOptions_t.numHashes,bloomOptions_t.prob,wordAttributes->numWords,	
+				bloomOptions_t.size);
 		
 		free(results);
 		freeWordAttributes(wordAttributes);
 		
 	}
-
-	/*	
-	printf("TRUE,FALSE,TOTAL %i,%i,%i \n",trueNumOnesCounted,falseNumOnesCounted,
-		trueNumOnesCounted+falseNumOnesCounted);
-	*/
 
 	if(pbfOutput)
 		fclose(pbfOutput);

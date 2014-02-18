@@ -1,8 +1,10 @@
 #include "../ParseArgs.h"
 #include "../RandomGenerator.h"
 #include "../ParseData.h"
+#include "../PBFStats.h"
 #include "Hash.h"
 #include <time.h>
+#include <math.h>
 
 /**
 * Inserts words into the pbf.
@@ -102,40 +104,45 @@ int main(int argc,char** argv){
 		}
 	}
 
+	FILE* pbfOutput = 0;
+	if(bloomOptions_t.pbfOutput){
+		pbfOutput = fopen(bloomOptions_t.pbfOutput,"w+");
+	}
+
 	//Get the stats...
 	int numTrueOnesCalculated = 0;
 	int numFalseOnesCalculated = 0;
 	i = 0;
 	for(;i<bloomOptions_t.trueBatches;i++){
 		WordAttributes* wordAttributes = loadFile(i);
-		int* resultVector = (int*)calloc(sizeof(int)*wordAttributes->numWords,
+		int* results = (int*)calloc(sizeof(int)*wordAttributes->numWords,
 			sizeof(int));
-		queryWords(bloom,&bloomOptions_t,wordAttributes,resultVector);
-		int x  = 0;
-		for(;x<wordAttributes->numWords;x++){
-			numTrueOnesCalculated+=resultVector[x];	
-		}
-		free(resultVector);
+		queryWords(bloom,&bloomOptions_t,wordAttributes,results);
+		if(bloomOptions_t.pbfOutput)
+			writeStats(pbfOutput,i,results,wordAttributes->numWords,
+				bloomOptions_t.numHashes,bloomOptions_t.prob,wordAttributes->numWords,	
+				bloomOptions_t.size);
+
+		free(results);
 		freeWordAttributes(wordAttributes);
 	}
 
 	for(i = 0;i<bloomOptions_t.falseBatches;i++){
 		WordAttributes* wordAttributes = loadFileByPrefix(i,(char*)"q");
-		int* resultVector = (int*)calloc(sizeof(int)*wordAttributes->numWords,
+		int* results = (int*)calloc(sizeof(int)*wordAttributes->numWords,
 			sizeof(int));
-		queryWords(bloom,&bloomOptions_t,wordAttributes,resultVector);
-		int x  = 0;
-		for(;x<wordAttributes->numWords;x++){
-			numFalseOnesCalculated+=resultVector[x];
-		}		
-		free(resultVector);
+		queryWords(bloom,&bloomOptions_t,wordAttributes,results);
+		if(bloomOptions_t.pbfOutput)
+			writeStats(pbfOutput,i,results,wordAttributes->numWords,
+				bloomOptions_t.numHashes,bloomOptions_t.prob,wordAttributes->numWords,	
+				bloomOptions_t.size);
+
+		free(results);
 		freeWordAttributes(wordAttributes);
 	}	
 
-	/*
-	printf("TRUE,FALSE,TOTAL %i,%i,%i \n",numTrueOnesCalculated,
-		numFalseOnesCalculated,(numTrueOnesCalculated+numFalseOnesCalculated));
-	*/		
+	if(pbfOutput)
+		fclose(pbfOutput);
 
 	if(bloomOptions_t.fileName!=0){
 		writeBloomFilterToFile(&bloomOptions_t,bloom);

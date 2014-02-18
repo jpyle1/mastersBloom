@@ -37,17 +37,20 @@ bin/Hash.o: regularBloom/Hash.h regularBloom/Hash.cpp
 	mv Hash.o bin/
 
 bin/gpuMain.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o gpguBloom/gpumain.cpp bin/bloom.o gpguBloom/Bloom.h
-	$(NVCC) -arch=sm_20 -o bin/gpuMain.exe gpguBloom/gpumain.cpp  bin/ParseArgs.o bin/RandomGenerator.o bin/ParseData.o bin/bloom.o
+	$(NVCC) -arch=sm_11 -o bin/gpuMain.exe gpguBloom/gpumain.cpp  bin/ParseArgs.o bin/RandomGenerator.o bin/ParseData.o bin/bloom.o
 
-bin/pbfmain.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o gpguBloom/pbfmain.cpp bin/bloom.o gpguBloom/Bloom.h
-	$(NVCC) -arch=sm_20 -o bin/pbfmain.exe gpguBloom/pbfmain.cpp  bin/ParseArgs.o bin/RandomGenerator.o bin/ParseData.o bin/bloom.o
+bin/pbfmain.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o gpguBloom/pbfmain.cpp bin/bloom.o gpguBloom/Bloom.h bin/pbfstats.o
+	$(NVCC) -arch=sm_11 -o bin/pbfmain.exe gpguBloom/pbfmain.cpp  bin/ParseArgs.o bin/RandomGenerator.o bin/ParseData.o bin/bloom.o bin/pbfstats.o
 
-bin/pbfReg.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o regularBloom/pbfReg.cpp bin/Hash.o
-	g++ regularBloom/pbfReg.cpp bin/ParseArgs.o bin/RandomGenerator.o bin/Hash.o bin/ParseData.o -o bin/pbfReg.exe
+bin/pbfReg.exe: bin/RandomGenerator.o bin/ParseArgs.o bin/ParseData.o regularBloom/pbfReg.cpp bin/Hash.o bin/pbfstats.o
+	g++ regularBloom/pbfReg.cpp bin/ParseArgs.o bin/RandomGenerator.o bin/Hash.o bin/ParseData.o bin/pbfstats.o -o bin/pbfReg.exe
 
+bin/pbfstats.o: PBFStats.h misc/PBFStats.cpp
+	g++ -c misc/PBFStats.cpp
+	mv PBFStats.o bin/pbfstats.o	
 
 bin/bloom.o: gpguBloom/bloom.cu
-	$(NVCC) -arch=sm_20 -c gpguBloom/bloom.cu 
+	$(NVCC) -arch=sm_11 -c gpguBloom/bloom.cu 
 	mv bloom.o bin/
 	
 clean:
