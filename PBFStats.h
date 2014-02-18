@@ -1,16 +1,5 @@
 #include <math.h>
-#include <stdlib.h>
 #include <stdio.h>
-
-/**
-* Holds the calculated PBF stats.
-*/
-typedef struct stats{
-	float f;
-	float fMin;
-	float fMax;	
-}PBFStats;
-
 
 /**
 * Responsible for calculating the stats relating to a pbf.
