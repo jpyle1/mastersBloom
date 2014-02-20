@@ -111,11 +111,11 @@ int main(int argc,char** argv){
 		freeWordAttributes(wordAttributes);		
 	}
 	
-
+	/*
 	//Print the query stats.
 	printf("calcTrue: %i  KnownTrue: %i \ncalcFalse: %i  KnownFalse: %i\n",
 		numCalcTrue,numTrue,numCalcFalse,numFalse);
-
+	*/
 
 	//Copy the bloom filter to main memory.	
 	copyCharsToHost(bloom,dev_bloom,bloomOptions_t.size);

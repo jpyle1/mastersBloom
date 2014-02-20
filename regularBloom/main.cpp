@@ -148,11 +148,11 @@ int main(int argc,char** argv){
 		freeWordAttributes(wordAttributes);	
 		free(resultVector);		
 	}
-
+	/*
 	//Print the query stats.
 	printf("calcTrue: %i  KnownTrue: %i \ncalcFalse: %i  KnownFalse: %i\n",
 		numCalcTrue,numTrue,numCalcFalse,numFalse);
-
+	*/
 	if(bloomOptions_t.fileName!=0){
 		writeBloomFilterToFile(&bloomOptions_t,bloom);				
 	}

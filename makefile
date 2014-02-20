@@ -10,6 +10,12 @@ make pbfReg: data/ bin/ bin/pbfReg.exe
 
 data/:
 	mkdir data
+	mkdir data/pbf
+	mkdir data/pbf/pbfResult
+	mkdir data/pbf/time
+	mkdir data/reg
+	mkdir data/reg/result
+	mkdir data/reg/time
 bin/: 
 	mkdir bin
 
