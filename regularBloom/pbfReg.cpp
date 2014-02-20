@@ -127,15 +127,19 @@ int main(int argc,char** argv){
 		freeWordAttributes(wordAttributes);
 	}
 
+	if(bloomOptions_t.pbfOutput)
+		fprintf(pbfOutput,"false\n");
+
 	for(i = 0;i<bloomOptions_t.falseBatches;i++){
 		WordAttributes* wordAttributes = loadFileByPrefix(i,(char*)"q");
 		int* results = (int*)calloc(sizeof(int)*wordAttributes->numWords,
 			sizeof(int));
 		queryWords(bloom,&bloomOptions_t,wordAttributes,results);
-		if(bloomOptions_t.pbfOutput)
+		if(bloomOptions_t.pbfOutput){
 			writeStats(pbfOutput,i,results,wordAttributes->numWords,
 				bloomOptions_t.numHashes,bloomOptions_t.prob,wordAttributes->numWords,	
 				bloomOptions_t.size);
+		}
 
 		free(results);
 		freeWordAttributes(wordAttributes);

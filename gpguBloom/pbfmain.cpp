@@ -4,6 +4,8 @@
 #include "Bloom.h"
 #include <time.h>
 #include <math.h>
+
+
 /**
 *
 */
@@ -112,6 +114,10 @@ int main(int argc,char** argv){
 		free(results);
 		freeWordAttributes(wordAttributes);
 	}
+
+	if(bloomOptions_t.pbfOutput)
+		fprintf(pbfOutput,"false\n");
+
 
 	//Query the words we know to be false...
 	for(i = 0;i<bloomOptions_t.falseBatches;i++){
