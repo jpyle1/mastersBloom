@@ -1,38 +1,47 @@
-This is an academic type GPU classical bloom filter / PBF.
+This is an academic type bloom filter for gpus.
+This program is made to compare the performance of:
 
-====================================
-PBF
-===================================
+A regular bloom filter and a reguler bloom filter on the gpu
 
-In order to compile:
+And
 
-make
+A PBF and a PBF on the gpu. (Probabilistic bloom filter).
 
-In order to see a full list of the options:
-./bin/pbfmain.exe --help	
+================
+Steps
 
-In order to generate test data:
+1)Compile the source code:
+	make
 
-1) Select options included batchSize, number of batches, number of true batches,and number of false batches.
-2) If these items are not selected, default values are put in.
-3) Finally, include the --generate option.
+2)
+In order to compare the regular bloom filter and the gpu bloom filter:
 
-./bin/pbfmain.exe --batchSize 10000 -n 20 --trueBatches 5 --falseBatches 3 --generate
+python CompareBloom.py
 
-In order to test the probabilistic bloom fitler:
+The output for the times will be located in data/reg/time.
 
-1) Pass in the arguments relating to the data that has been generated.
---batchSize 10000 -n 20 --trueBatches 5 --falseBatches 3
+The file names are in the format: numHash_x.txt,
 
-2) Select other options including:
---size The size in bits (actually represented in chars) of the bloom filter
---file The file where the bloom filter is outputted to.
---numTrueBatchInsertions The number of times to insert the true batches 
---prob The probability value of the pbf.
---hashes The number of hash functions to use.
+where x is the number of hash functions. Each row contains a different batch size.
 
-3) launch
+3) In order to compare the PBF and the GPU PBF.
 
-./bin/pbfmain.exe --batchSize 10000 -n 20 --trueBatches 5 --falseBatches 3 --size 100000 --file testRun.txt --numTrueBatchInsertions 10 --prob .2
+python ComparePBF.py
 
-==============================================
+The output for the times will be located in data/pbf/time.
+
+The file names are in the format: numHash_x.txt,
+
+where x is the number of hash functions. Each row contains a different batch size.
+
+4) Specific arguments.
+
+--hashStart The smallest number of hash functions
+--hashEnd The maximum number of hash functions.
+--hashInc The amount to increment the number of hash functions by.
+--batchStart The smallest batch size
+--batchEnd The biggest batch size
+--batchInc The amount to increment the batch size by.
+
+example:
+	python CompareBloom.py --hashStart 10 --hashEnd 50 --hashInc 10 --batchStart 100000 --batchEnd 1000000 --batchInc 100000
