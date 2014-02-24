@@ -50,7 +50,7 @@ time $COMMAND ./bin/gpuMain.exe $GPUCOMMAND
 
 #Insert items into the bloom filters.
 echo "Starting regular"
-REGCOMMAND=" -f regOut.txt ":$PARAMETERS
+#REGCOMMAND=" -f regOut.txt ":$PARAMETERS
 time ./bin/main.exe $REGCOMMAND
 
 

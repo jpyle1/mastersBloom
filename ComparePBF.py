@@ -11,10 +11,13 @@ def main(hashStart,hashEnd,hashInc,batchStart,batchEnd,batchInc):
 			subprocess.call(["rm","-rf",".txt"])
 			#Generate the batch data.
 			subprocess.call(["bin/pbfmain.exe","--batchSize",str(batchSize),
-				"--generate","--silent"])	
+				"--generate","--silent","--trueBatches","1","--falseBatches","1",
+				"--numBatches","1"])	
 			#Setup the basic arguments.
 			basicArgs = ["--hashes",str(numHash),"--prob",".02","--batchSize",
-				str(batchSize),"--silent","--size","100000000"]
+				str(batchSize),"--silent","--size","100000000",
+				"--numTrueBatchInsertions","1","--trueBatches","1","--falseBatches",
+				"1"]
 			pbfArgs = ["bin/pbfmain.exe"]
 			pbfRun = []
 			pbfRun[len(pbfRun):] = pbfArgs

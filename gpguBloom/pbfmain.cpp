@@ -95,7 +95,8 @@ int main(int argc,char** argv){
 			return 0;
 		}
 	} 
-	
+
+		
 	//Query the words we know to be true...
 	i = 0;
 	for(;i<bloomOptions_t.trueBatches;i++){
@@ -144,7 +145,6 @@ int main(int argc,char** argv){
 
 	if(pbfOutput)
 		fclose(pbfOutput);
-	
 	//Copy the bloom filter to main memory.
 	copyCharsToHost(bloom,dev_bloom,bloomOptions_t.size);
 	freeChars(dev_bloom);

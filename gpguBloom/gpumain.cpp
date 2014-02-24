@@ -54,13 +54,11 @@ int main(int argc,char** argv){
 			bloomOptions_t.device);
 		freeWordAttributes(wordAttributes);
 	}
-
 	//Query Words
 	int numTrue = 0;
 	int numCalcTrue = 0;
 	int numFalse = 0;
 	int numCalcFalse = 0;	
-
 	//Query the words we know to be true.
 	i = 0;
 	for(;i<bloomOptions_t.trueBatches;i++){		
@@ -111,12 +109,11 @@ int main(int argc,char** argv){
 		freeWordAttributes(wordAttributes);		
 	}
 	
-	/*
 	//Print the query stats.
 	printf("calcTrue: %i  KnownTrue: %i \ncalcFalse: %i  KnownFalse: %i\n",
 		numCalcTrue,numTrue,numCalcFalse,numFalse);
-	*/
-
+	
+	
 	//Copy the bloom filter to main memory.	
 	copyCharsToHost(bloom,dev_bloom,bloomOptions_t.size);
 	//Free the bloom filter.

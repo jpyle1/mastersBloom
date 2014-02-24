@@ -239,12 +239,35 @@ __global__ void insertWordsGpu(char* dev_bloom,int size,char* dev_words,
 	int currentWord = calculateCurrentWord(numRowsPerHash);
 	if(currentWord>=numWords)
 		return;
-	int wordStartingPosition = dev_positions[currentWord]; 	
-	int setIdx = calculateIndex(dev_bloom,size,dev_words,
-		wordStartingPosition,numHashes,numRowsPerHash);
+
+	int minWordIdx = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
+		blockDim.x*blockIdx.x;
+
+	int minPos = dev_positions[minWordIdx];	
+	
+	//Cache for the words.
+	extern __shared__ char wordCache [];
+	int currentIdx = dev_positions[currentWord];
+
+	__syncthreads();
+	if(threadIdx.y == 0){
+		int x = 0;
+		char currentByte = dev_words[currentIdx];
+		for(;currentByte!=',';x++){
+			currentByte = dev_words[currentIdx+x];
+			wordCache[x-minPos+currentIdx] =  currentByte;	
+		}
+	}
+	__syncthreads();
+
+ 
+		
+	int setIdx = calculateIndex(dev_bloom,size,wordCache,
+		currentIdx-minPos,numHashes,numRowsPerHash);
 	if(setIdx<0)
 		return;
 	dev_bloom[setIdx]=1;
+	
 }
 
 /**
@@ -262,9 +285,30 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
 	int currentWord = calculateCurrentWord(numRowsPerHash);
 	if(currentWord>=numWords)
 		return;
-	int wordStartingPosition = dev_positions[currentWord]; 	
-	int setIdx = calculateIndex(dev_bloom,size,dev_words,
-		wordStartingPosition,numHashes,numRowsPerHash);
+
+	int minWordIdx = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
+		blockDim.x*blockIdx.x;
+
+	int minPos = dev_positions[minWordIdx];	
+	
+	//Cache for the words.
+	extern __shared__ char wordCache [];
+	int currentIdx = dev_positions[currentWord];
+
+	__syncthreads();
+	if(threadIdx.y == 0){
+		int x = 0;
+		char currentByte = dev_words[currentIdx];
+		for(;currentByte!=',';x++){
+			currentByte = dev_words[currentIdx+x];
+			wordCache[x-minPos+currentIdx] =  currentByte;	
+		}
+	}
+	__syncthreads();
+
+
+	int setIdx = calculateIndex(dev_bloom,size,wordCache,
+		currentIdx-minPos,numHashes,numRowsPerHash);
 	int fy = ((blockIdx.y%numRowsPerHash)*(blockDim.y-1)+threadIdx.y);
 	unsigned int randVal = 
 		get_random(randOffset,(unsigned long)(randOffset*setIdx+fy+currentWord));
@@ -289,9 +333,30 @@ __global__ void queryWordsGpu(char* dev_bloom,int size,char* dev_words,
 	if(currentWord>=numWords)
 		return;
 
-	int wordStartingPosition = dev_positions[currentWord]; 
-	int getIdx = calculateIndex(dev_bloom,size,dev_words,
-		wordStartingPosition,numHashes,numRowsPerHash);
+	int minWordIdx = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
+		blockDim.x*blockIdx.x;
+
+	int minPos = dev_positions[minWordIdx];	
+	
+	//Cache for the words.
+	extern __shared__ char wordCache [];
+
+	int currentIdx = dev_positions[currentWord];
+
+	__syncthreads();
+
+	if(threadIdx.y == 0){
+		int x = 0;
+		char currentByte = dev_words[currentIdx];
+		for(;currentByte!=',';x++){
+			currentByte = dev_words[currentIdx+x];
+			wordCache[x-minPos+currentIdx] =  currentByte;	
+		}
+	}
+	__syncthreads();
+
+	int getIdx = calculateIndex(dev_bloom,size,wordCache,
+		currentIdx-minPos,numHashes,numRowsPerHash);
 	if(getIdx<0)
 		return;
 	__syncthreads();	
@@ -311,9 +376,30 @@ __global__ void queryWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
 	if(currentWord>=numWords)
 		return;
 
-	int wordStartingPosition = dev_positions[currentWord]; 
-	int getIdx = calculateIndex(dev_bloom,size,dev_words,
-		wordStartingPosition,numHashes,numRowsPerHash);
+	int minWordIdx = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
+		blockDim.x*blockIdx.x;
+
+	int minPos = dev_positions[minWordIdx];	
+	
+	//Cache for the words.
+	extern __shared__ char wordCache [];
+	int currentIdx = dev_positions[currentWord];
+
+	__syncthreads();
+	if(threadIdx.y == 0){
+		int x = 0;
+		char currentByte = dev_words[currentIdx];
+		for(;currentByte!=',';x++){
+			currentByte = dev_words[currentIdx+x];
+			wordCache[x-minPos+currentIdx] =  currentByte;	
+		}
+	}
+	__syncthreads();
+
+
+
+	int getIdx = calculateIndex(dev_bloom,size,wordCache,
+		currentIdx-minPos,numHashes,numRowsPerHash);
 	if(getIdx<0)
 		return;
 	atomicAdd(&dev_results[currentWord],dev_bloom[getIdx]);
@@ -329,6 +415,9 @@ cudaError_t insertWords(char* dev_bloom,int size,char* words,
 	//Get the device information being used.
 	cudaDeviceProp deviceProps;
 	cudaGetDeviceProperties(&deviceProps,device);
+
+	//Get the maximum amount of shared memory per block.
+	int maxShared = deviceProps.sharedMemPerBlock;
 
 	//Calculate the dimensions needed.
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,
@@ -351,10 +440,10 @@ cudaError_t insertWords(char* dev_bloom,int size,char* words,
 	}
 
 	//Actually insert the words.
-	insertWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,size
-		,dev_words,dev_offsets,numWords,numHashes,numRowPerHash);
-	cudaThreadSynchronize();
-
+	insertWordsGpu<<<blockDimensions,threadDimensions,maxShared*sizeof(char)>>>
+		(dev_bloom,size,dev_words,dev_offsets,numWords,numHashes,numRowPerHash);
+		cudaThreadSynchronize();
+		
 	//Check for errorrs...
 	cudaError_t error = cudaGetLastError();
 	if(error!=cudaSuccess){
@@ -382,6 +471,10 @@ cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	cudaDeviceProp deviceProps;
 	cudaGetDeviceProperties(&deviceProps,device);
 
+	//Get the maximum amount of shared memory per block.
+	int maxShared = deviceProps.sharedMemPerBlock;
+
+
 	//Calculate the dimensions needed.
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,
 		&deviceProps);
@@ -403,7 +496,7 @@ cudaError_t insertWordsPBF(char* dev_bloom,int size,char* words,
 	}
 
 	//Actually insert the words.
-	insertWordsGpuPBF<<<blockDimensions,threadDimensions>>>(dev_bloom,size
+	insertWordsGpuPBF<<<blockDimensions,threadDimensions,sizeof(char)*maxShared>>>(dev_bloom,size
 		,dev_words,dev_offsets,numWords,numHashes,numRowPerHash,prob,randOffset);
 	cudaThreadSynchronize();
 
@@ -435,6 +528,10 @@ cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	cudaDeviceProp deviceProps;
 	cudaGetDeviceProperties(&deviceProps,device);
 
+	//Get the maximum amount of shared memory per block.
+	int maxShared = deviceProps.sharedMemPerBlock;
+
+
 	dim3 threadDimensions = calculateThreadDimensions(numWords,numHashes,
 		&deviceProps);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
@@ -459,7 +556,7 @@ cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	}
 
 	//Actually query the words.
-	queryWordsGpu<<<blockDimensions,threadDimensions>>>(dev_bloom,size
+	queryWordsGpu<<<blockDimensions,threadDimensions,maxShared*sizeof(char)>>>(dev_bloom,size
 		,dev_words,dev_offsets,dev_results,numWords,numHashes,
 		numRowPerHash);
 	cudaThreadSynchronize();
