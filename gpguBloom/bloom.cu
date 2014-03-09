@@ -194,9 +194,9 @@ __device__ unsigned long sdbmHash(unsigned char* str,int start){
 }
 
 __device__ int calculateCurrentWord(int numRowsPerHash){
-	int numThreadsPrevRows = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
-		blockDim.x*blockIdx.x;
-	return  threadIdx.x+numThreadsPrevRows;
+	int numThreadsPrevRows = (blockDim.y*gridDim.y)*(blockIdx.x/numRowsPerHash)+
+		blockDim.y*blockIdx.y;
+	return  threadIdx.y+numThreadsPrevRows;
 }
 
 __device__ int calculateIndex(char* dev_bloom,int size,char* dev_words,
@@ -204,7 +204,7 @@ __device__ int calculateIndex(char* dev_bloom,int size,char* dev_words,
 
 	unsigned long firstValue = djb2Hash((unsigned char*)dev_words,wordStartingPosition)%size;	
 	unsigned long secondValue = sdbmHash((unsigned char*)dev_words,wordStartingPosition)%size;
-	int fy = ((blockIdx.y%numRowsPerHash)*(blockDim.y-1)+threadIdx.y);
+	int fy = ((blockIdx.x%numRowsPerHash)*(blockDim.x-1)+threadIdx.x);
 	if(fy>=numHash)
 		return -1;
 	secondValue = (secondValue*fy*fy)%size;
@@ -240,8 +240,8 @@ __global__ void insertWordsGpu(char* dev_bloom,int size,char* dev_words,
 	if(currentWord>=numWords)
 		return;
 
-	int minWordIdx = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
-		blockDim.x*blockIdx.x;
+	int minWordIdx = (blockDim.y*gridDim.y)*(blockIdx.x/numRowsPerHash)+
+		blockDim.y*blockIdx.y;
 
 	int minPos = dev_positions[minWordIdx];	
 	
@@ -250,7 +250,7 @@ __global__ void insertWordsGpu(char* dev_bloom,int size,char* dev_words,
 	int currentIdx = dev_positions[currentWord];
 
 	__syncthreads();
-	if(threadIdx.y == 0){
+	if(threadIdx.x == 0){
 		int x = 0;
 		char currentByte = dev_words[currentIdx];
 		for(;currentByte!=',';x++){
@@ -286,8 +286,8 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
 	if(currentWord>=numWords)
 		return;
 
-	int minWordIdx = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
-		blockDim.x*blockIdx.x;
+	int minWordIdx = (blockDim.y*gridDim.y)*(blockIdx.x/numRowsPerHash)+
+		blockDim.y*blockIdx.y;
 
 	int minPos = dev_positions[minWordIdx];	
 	
@@ -296,7 +296,7 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
 	int currentIdx = dev_positions[currentWord];
 
 	__syncthreads();
-	if(threadIdx.y == 0){
+	if(threadIdx.x == 0){
 		int x = 0;
 		char currentByte = dev_words[currentIdx];
 		for(;currentByte!=',';x++){
@@ -309,7 +309,7 @@ __global__ void insertWordsGpuPBF(char* dev_bloom,int size,char* dev_words,
 
 	int setIdx = calculateIndex(dev_bloom,size,wordCache,
 		currentIdx-minPos,numHashes,numRowsPerHash);
-	int fy = ((blockIdx.y%numRowsPerHash)*(blockDim.y-1)+threadIdx.y);
+	int fy = ((blockIdx.x%numRowsPerHash)*(blockDim.x-1)+threadIdx.x);
 	unsigned int randVal = 
 		get_random(randOffset,(unsigned long)(randOffset*setIdx+fy+currentWord));
 	float calcProb = (float)randVal/(1000000.0f);
@@ -333,8 +333,8 @@ __global__ void queryWordsGpu(char* dev_bloom,int size,char* dev_words,
 	if(currentWord>=numWords)
 		return;
 
-	int minWordIdx = (blockDim.x*gridDim.x)*(blockIdx.y/numRowsPerHash)+
-		blockDim.x*blockIdx.x;
+	int minWordIdx = (blockDim.y*gridDim.y)*(blockIdx.x/numRowsPerHash)+
+		blockDim.y*blockIdx.y;
 
 	int minPos = dev_positions[minWordIdx];	
 	
@@ -345,7 +345,7 @@ __global__ void queryWordsGpu(char* dev_bloom,int size,char* dev_words,
 
 	__syncthreads();
 
-	if(threadIdx.y == 0){
+	if(threadIdx.x == 0){
 		int x = 0;
 		char currentByte = dev_words[currentIdx];
 		for(;currentByte!=',';x++){
@@ -424,9 +424,12 @@ cudaError_t insertWords(char* dev_bloom,int size,char* words,
 		&deviceProps);
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		numHashes,&deviceProps);
+
+	threadDimensions = dim3(threadDimensions.y,threadDimensions.x);
+	blockDimensions = dim3(blockDimensions.y,blockDimensions.x);
 	//Calculate the number of extra rows to calculate hashes >1024.
-	int numRowPerHash = numHashes/deviceProps.maxThreadsPerBlock + 
-		(numHashes%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
+	int numRowPerHash = numWords/deviceProps.maxThreadsPerBlock + 
+		(numWords%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
 
 	//Allocate the information.
 	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
@@ -537,8 +540,12 @@ cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	dim3 blockDimensions = calculateBlockDimensions(threadDimensions,numWords,
 		numHashes,&deviceProps);
 
-	int numRowPerHash = numHashes/deviceProps.maxThreadsPerBlock + 
-		(numHashes%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
+
+	threadDimensions = dim3(threadDimensions.y,threadDimensions.x);
+	blockDimensions = dim3(blockDimensions.y,blockDimensions.x);
+
+	int numRowPerHash = numWords/deviceProps.maxThreadsPerBlock + 
+		(numWords%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
 
 	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
 	if(!dev_offsets){
