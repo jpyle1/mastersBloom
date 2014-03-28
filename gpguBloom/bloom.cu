@@ -428,8 +428,8 @@ cudaError_t insertWords(char* dev_bloom,int size,char* words,
 	threadDimensions = dim3(threadDimensions.y,threadDimensions.x);
 	blockDimensions = dim3(blockDimensions.y,blockDimensions.x);
 	//Calculate the number of extra rows to calculate hashes >1024.
-	int numRowPerHash = numWords/deviceProps.maxThreadsPerBlock + 
-		(numWords%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
+	int numRowPerHash = numHashes/deviceProps.maxThreadsPerBlock + 
+		(numHashes%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
 
 	//Allocate the information.
 	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
@@ -544,8 +544,8 @@ cudaError_t queryWords(char* dev_bloom,int size,char* words,
 	threadDimensions = dim3(threadDimensions.y,threadDimensions.x);
 	blockDimensions = dim3(blockDimensions.y,blockDimensions.x);
 
-	int numRowPerHash = numWords/deviceProps.maxThreadsPerBlock + 
-		(numWords%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
+	int numRowPerHash = numHashes/deviceProps.maxThreadsPerBlock + 
+		(numHashes%deviceProps.maxThreadsPerBlock>0 ? 1 : 0);
 
 	int* dev_offsets = allocateAndCopyIntegers(offsets,numWords);
 	if(!dev_offsets){
